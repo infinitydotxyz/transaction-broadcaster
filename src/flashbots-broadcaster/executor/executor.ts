@@ -273,7 +273,7 @@ export class Executor {
     return signedBundle;
   }
 
-  private async simulateBundle(transactions: {id: string; tx: providers.TransactionRequest}[]) {
+  private async simulateBundle(transactions: { id: string; tx: providers.TransactionRequest }[]) {
     const signedBundle = await this.getSignedBundle(transactions);
 
     const simulationResult = await this.flashbotsProvider.simulate(signedBundle, 'latest');

@@ -6,6 +6,7 @@
     "clean": "rimraf dist",
     "format": "prettier --write \"src/**/*.ts\"",
     "lint": "eslint \"./src/**/*.ts\" --fix",
+    "pre:push": "npm run format && npm run lint & npm run build",
     "start:dev": "ts-node -r dotenv/config ./src/index.ts",
     "start:fb:example": "ts-node -r dotenv/config ./src/flashbots-broadcaster/example.ts",
     "update:lib": "npm install @infinityxyz/lib@latest"
@@ -26,6 +27,7 @@
     "@flashbots/ethers-provider-bundle": "^0.4.3",
     "@infinityxyz/lib": "^1.54.0",
     "dotenv": "^16.0.1",
-    "ethers": "^5.6.5"
+    "ethers": "^5.6.5",
+    "firebase-admin": "^10.2.0"
   }
 }

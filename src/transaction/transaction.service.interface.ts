@@ -6,16 +6,16 @@ export enum TransactionServiceEvent {
   Remove = 'transaction-removed'
 }
 
-interface UpdateTransactionEvent {
+export interface UpdateTransactionEvent {
   id: string;
   transaction: providers.TransactionRequest;
 }
 
-interface RemoveTransactionEvent {
+export interface RemoveTransactionEvent {
   id: string;
 }
 
-type GetTransactionEvent = {
+export type GetTransactionEvent = {
   [TransactionServiceEvent.Update]: UpdateTransactionEvent;
   [TransactionServiceEvent.Remove]: RemoveTransactionEvent;
 };

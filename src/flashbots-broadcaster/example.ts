@@ -115,7 +115,6 @@ async function main() {
     maxFeePerGas: 100
   };
 
-
   const test = {
     id: 'asdf',
     tx: tx
@@ -129,7 +128,7 @@ async function main() {
   const revert = {
     id: 'fail',
     tx: revertTx
-  }
+  };
 
   executor.add(test.id, test.tx);
   executor.add(test2.id, test2.tx);
