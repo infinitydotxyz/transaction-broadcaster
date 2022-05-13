@@ -108,6 +108,14 @@ async function main() {
     maxFeePerGas: 100
   };
 
+  const revertTx = {
+    data: '0x1249c58a',
+    to: '0x4EcDA24Cf0Dca2Fc77b382ED38343462AdB8cEdC',
+    value: ETHER.mul(3).div(100),
+    maxFeePerGas: 100
+  };
+
+
   const test = {
     id: 'asdf',
     tx: tx
@@ -118,8 +126,14 @@ async function main() {
     tx: tx2
   };
 
+  const revert = {
+    id: 'fail',
+    tx: revertTx
+  }
+
   executor.add(test.id, test.tx);
   executor.add(test2.id, test2.tx);
+  executor.add(revert.id, revert.tx);
 }
 
 void main();

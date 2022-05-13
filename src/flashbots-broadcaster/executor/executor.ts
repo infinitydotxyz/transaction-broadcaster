@@ -158,6 +158,7 @@ export class Executor {
     const gasPrice = maxBaseFeeGwei + this.settings.priorityFee;
     const transactions = this.txPool.getTransactions({ minMaxGasFeeGwei: gasPrice }).map(({ id, tx }) => {
       const txRequest: providers.TransactionRequest = {
+        gasLimit: 500_000, // required so that eth_estimateGas doesn't throw an error for invalid transactions
         ...tx,
         chainId: this.network.chainId,
         type: 2,
@@ -239,9 +240,9 @@ export class Executor {
           const transaction = transactions[index];
           return {
             receipt,
-            id: transaction.id,
-            tx: transaction.tx,
-            successful: receipt.status === 1
+            id: transaction?.id,
+            tx: transaction?.tx,
+            successful: receipt?.status === 1
           };
         });
         const totalGasUsed = bundle.reduce((acc, curr) => {
