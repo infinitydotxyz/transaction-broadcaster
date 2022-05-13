@@ -56,19 +56,19 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
 
   private createTransaction(listing: FirestoreOrder, offer: FirestoreOrder): providers.TransactionRequest {
     const order = {
-        isSellOrder: listing.isSellOrder,
-        signer: listing.signedOrder.signer,
-        constraints: listing.signedOrder.constraints,
-        nfts: listing.signedOrder.nfts,// TODO do I have to filter out nfts that are not part of the match?
-        execParams: listing.signedOrder.execParams,
-        extraParams: listing.signedOrder.extraParams,
-        sig: listing.signedOrder.sig,
-    }
+      isSellOrder: listing.isSellOrder,
+      signer: listing.signedOrder.signer,
+      constraints: listing.signedOrder.constraints,
+      nfts: listing.signedOrder.nfts, // TODO do I have to filter out nfts that are not part of the match?
+      execParams: listing.signedOrder.execParams,
+      extraParams: listing.signedOrder.extraParams,
+      sig: listing.signedOrder.sig
+    };
     return {
       to: listing.complicationAddress,
       gasLimit: 1_000_000,
       data: '', // TODO encode orders
-      chainId: parseInt(listing.chainId),
+      chainId: parseInt(listing.chainId)
     };
   }
 

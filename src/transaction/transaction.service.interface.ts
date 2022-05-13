@@ -1,3 +1,3 @@
 import { TransactionProvider } from './transaction.provider.interface';
 
-export type TransactionService = TransactionProvider
+export type TransactionService = TransactionProvider;

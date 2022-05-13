@@ -1,5 +1,9 @@
 import * as EventEmitter from 'events';
-import { GetTransactionEvent, TransactionProviderEvent, TransactionProvider as ITransactionProvider } from './transaction.provider.interface';
+import {
+  GetTransactionEvent,
+  TransactionProviderEvent,
+  TransactionProvider as ITransactionProvider
+} from './transaction.provider.interface';
 
 export abstract class TransactionProvider implements ITransactionProvider {
   protected emitter: EventEmitter;

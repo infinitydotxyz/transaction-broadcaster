@@ -1,32 +1,31 @@
-import { providers } from "ethers/lib/ethers";
+import { providers } from 'ethers/lib/ethers';
 
 export enum TransactionProviderEvent {
-    Update = 'transaction-updated',
-  
-    Remove = 'transaction-removed'
-  }
-  
-  export interface UpdateTransactionEvent {
-    id: string;
-    transaction: providers.TransactionRequest;
-  }
-  
-  export interface RemoveTransactionEvent {
-    id: string;
-  }
-  
-  export type GetTransactionEvent = {
-    [TransactionProviderEvent.Update]: UpdateTransactionEvent;
-    [TransactionProviderEvent.Remove]: RemoveTransactionEvent;
-  };
-  
+  Update = 'transaction-updated',
 
-export interface TransactionProvider  {
-    on<T extends TransactionProviderEvent>(event: T, listener: (event: GetTransactionEvent[T]) => void): void;
+  Remove = 'transaction-removed'
+}
 
-    off<T extends TransactionProviderEvent>(event: T, listener: (event: GetTransactionEvent[T]) => void): void;
+export interface UpdateTransactionEvent {
+  id: string;
+  transaction: providers.TransactionRequest;
+}
 
-    start(): Promise<void>;
-  
-    transactionReverted(id: string): Promise<void>;
+export interface RemoveTransactionEvent {
+  id: string;
+}
+
+export type GetTransactionEvent = {
+  [TransactionProviderEvent.Update]: UpdateTransactionEvent;
+  [TransactionProviderEvent.Remove]: RemoveTransactionEvent;
+};
+
+export interface TransactionProvider {
+  on<T extends TransactionProviderEvent>(event: T, listener: (event: GetTransactionEvent[T]) => void): void;
+
+  off<T extends TransactionProviderEvent>(event: T, listener: (event: GetTransactionEvent[T]) => void): void;
+
+  start(): Promise<void>;
+
+  transactionReverted(id: string): Promise<void>;
 }
