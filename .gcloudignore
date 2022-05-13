@@ -1,0 +1,14 @@
+.gcloudignore
+
+.git
+.gitignore
+
+# Node.js dependencies:
+node_modules/
+
+# Additional files not needed to run the service (ts files, lint, etc.)
+src/ 
+.eslintrc.js
+.vscode
+README.md
+tsconfig.json
