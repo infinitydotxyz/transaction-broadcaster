@@ -1,22 +1,22 @@
-import { FlashbotsBundleResolution } from "@flashbots/ethers-provider-bundle";
-import { BigNumber, providers } from "ethers/lib/ethers";
-import { ExecutionSettings } from "./executor.types";
+import { FlashbotsBundleResolution } from '@flashbots/ethers-provider-bundle';
+import { BigNumber, providers } from 'ethers/lib/ethers';
+import { ExecutionSettings } from './executor-options.types';
 
 export enum ExecutorEvent {
   /**
    * executor lifecycle
    */
-  Started = "started",
-  Stopping = "stopping",
-  Stopped = "stopped",
+  Started = 'started',
+  Stopping = 'stopping',
+  Stopped = 'stopped',
 
   Block = 'block',
 
-  Simulated = "simulated",
-  SubmittingBundle = "submitting-bundle",
-  BundleResult = "bundle-result",
+  Simulated = 'simulated',
+  SubmittingBundle = 'submitting-bundle',
+  BundleResult = 'bundle-result',
 
-  RelayError = "relay-error",
+  RelayError = 'relay-error'
 }
 
 export interface StartedEvent {
@@ -61,15 +61,13 @@ export interface SuccessfulBundleSubmission {
 }
 
 export enum FailedBundleSubmissionReason {
-  BlockPassedWithoutInclusion = "block-passed-without-inclusion",
-  AccountNonceTooHigh = "account-nonce-too-high",
+  BlockPassedWithoutInclusion = 'block-passed-without-inclusion',
+  AccountNonceTooHigh = 'account-nonce-too-high'
 }
 
 export const getFailedBundleSubmissionReason = {
-  [FlashbotsBundleResolution.BlockPassedWithoutInclusion]:
-    FailedBundleSubmissionReason.BlockPassedWithoutInclusion,
-  [FlashbotsBundleResolution.AccountNonceTooHigh]:
-    FailedBundleSubmissionReason.AccountNonceTooHigh,
+  [FlashbotsBundleResolution.BlockPassedWithoutInclusion]: FailedBundleSubmissionReason.BlockPassedWithoutInclusion,
+  [FlashbotsBundleResolution.AccountNonceTooHigh]: FailedBundleSubmissionReason.AccountNonceTooHigh
 };
 
 export interface FailedBundleSubmission {
@@ -77,9 +75,7 @@ export interface FailedBundleSubmission {
   blockNumber: number;
 }
 
-export type BundleSubmissionResultEvent =
-  | SuccessfulBundleSubmission
-  | FailedBundleSubmission;
+export type BundleSubmissionResultEvent = SuccessfulBundleSubmission | FailedBundleSubmission;
 
 export interface RelayErrorEvent {
   code: number;
@@ -87,20 +83,20 @@ export interface RelayErrorEvent {
 }
 
 export interface BlockEvent {
-    blockNumber: number;
-    gasPrice: BigNumber
+  blockNumber: number;
+  gasPrice: BigNumber;
 }
 
 export type GetEventType = {
-    [ExecutorEvent.Block]: BlockEvent,
-    [ExecutorEvent.Started]: StartedEvent,
-    [ExecutorEvent.Stopping]: StoppingEvent,
-    [ExecutorEvent.Stopped]: StoppedEvent,
-    [ExecutorEvent.Simulated]: SimulatedEvent,
-    [ExecutorEvent.SubmittingBundle]: SubmittingBundleEvent,
-    [ExecutorEvent.BundleResult]: BundleSubmissionResultEvent,
-    [ExecutorEvent.RelayError]: RelayErrorEvent,
-}
+  [ExecutorEvent.Block]: BlockEvent;
+  [ExecutorEvent.Started]: StartedEvent;
+  [ExecutorEvent.Stopping]: StoppingEvent;
+  [ExecutorEvent.Stopped]: StoppedEvent;
+  [ExecutorEvent.Simulated]: SimulatedEvent;
+  [ExecutorEvent.SubmittingBundle]: SubmittingBundleEvent;
+  [ExecutorEvent.BundleResult]: BundleSubmissionResultEvent;
+  [ExecutorEvent.RelayError]: RelayErrorEvent;
+};
 
 export type ExecutorEventTypes =
   | StartedEvent
