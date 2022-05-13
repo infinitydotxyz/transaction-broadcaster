@@ -222,7 +222,6 @@ export class Executor {
     });
 
     if ('error' in bundleResponse) {
-      // relay error
       const relayError: RelayErrorEvent = {
         message: bundleResponse.error.message,
         code: bundleResponse.error.code
@@ -234,7 +233,6 @@ export class Executor {
     const bundleResolution = await bundleResponse.wait();
     switch (bundleResolution) {
       case FlashbotsBundleResolution.BundleIncluded: {
-        // remove transactions from pool
         const receipts = await bundleResponse.receipts();
         const bundle = receipts.map((receipt, i) => {
           const index = receipt?.transactionIndex ?? i;
