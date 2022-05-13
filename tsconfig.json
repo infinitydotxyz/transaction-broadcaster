@@ -1,11 +1,11 @@
 {
   "compilerOptions": {
-    "baseUrl": "./src",
     "module": "commonjs",
     "declaration": false,
     "removeComments": true,
     "allowSyntheticDefaultImports": true,
-    "target": "esnext",
+    "forceConsistentCasingInFileNames": true,
+    "target": "es2020",
     "sourceMap": true,
     "outDir": "./dist",
     "incremental": true,
