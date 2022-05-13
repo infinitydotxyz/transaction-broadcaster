@@ -15,6 +15,10 @@ export abstract class TransactionProvider implements ITransactionProvider {
     this.emitter.off(event, listener);
   }
 
+  protected emit<T extends TransactionProviderEvent>(event: T, data: GetTransactionEvent[T]) {
+    this.emitter.emit(event, data);
+  }
+
   abstract transactionReverted(id: string): Promise<void>;
 
   abstract start(): Promise<void>;

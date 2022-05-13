@@ -25,6 +25,8 @@ export interface TransactionProvider  {
     on<T extends TransactionProviderEvent>(event: T, listener: (event: GetTransactionEvent[T]) => void): void;
 
     off<T extends TransactionProviderEvent>(event: T, listener: (event: GetTransactionEvent[T]) => void): void;
+
+    start(): Promise<void>;
   
     transactionReverted(id: string): Promise<void>;
 }
