@@ -36,7 +36,6 @@ export class Executor {
     const network = await options.provider.getNetwork();
     const connectionUrl = getFlashbotsEndpoint(network);
     const flashbotsProvider = await FlashbotsBundleProvider.create(options.provider, authSigner, connectionUrl);
-    const nonce = await signer.getTransactionCount();
     return new Executor({
       authSigner,
       provider: options.provider,
@@ -46,15 +45,14 @@ export class Executor {
       network,
       allowReverts: options.allowReverts ?? false,
       filterSimulationReverts: options.filterSimulationReverts ?? true,
-      priorityFee: options.priorityFee ?? 3.5,
-      nonce
+      priorityFee: options.priorityFee ?? 3.5
     });
   }
 
   /**
    * use the create method to create a new executor instance
    */
-  private constructor(options: ExecutorInternalOptions & { nonce: number }) {
+  private constructor(options: ExecutorInternalOptions) {
     this.authSigner = options.authSigner;
     this.signer = options.signer;
     this.provider = options.provider;
@@ -151,56 +149,21 @@ export class Executor {
   }
 
   private async execute(currentBlock: { blockNumber: number; timestamp: number; baseFee: BigNumber }) {
-    const minTimestamp = currentBlock.timestamp;
-    const maxTimestamp = minTimestamp + 120;
-    const targetBlockNumber = currentBlock.blockNumber + this.settings.blocksInFuture;
-    const { maxBaseFeeGwei } = getFeesAtTarget(currentBlock.baseFee, this.settings.blocksInFuture);
-    const gasPrice = maxBaseFeeGwei + this.settings.priorityFee;
-    const transactions = this.txPool.getTransactions({ minMaxGasFeeGwei: gasPrice }).map(({ id, tx }) => {
-      const txRequest: providers.TransactionRequest = {
-        gasLimit: 500_000, // required so that eth_estimateGas doesn't throw an error for invalid transactions
-        ...tx,
-        chainId: this.network.chainId,
-        type: 2,
-        maxPriorityFeePerGas: gweiToWei(this.settings.priorityFee),
-        maxFeePerGas: gweiToWei(gasPrice)
-      };
-      return {
-        id,
-        tx: txRequest
-      };
-    });
+    // eslint-disable-next-line prefer-const
+    let { transactions, targetBlockNumber, minTimestamp, maxTimestamp } = this.getTransactions(currentBlock);
 
     if (transactions.length === 0) {
       return;
     }
 
-    const signedBundle = await this.getSignedBundle(transactions);
-    const simulationResult = await this.simulateBundle(signedBundle);
-    const simulatedGasPrice = simulationResult.gasPrice;
-
-    const successful: { id: string; tx: providers.TransactionRequest }[] = [];
-    const reverted: { id: string; tx: providers.TransactionRequest }[] = [];
-    for (let index = 0; index < simulationResult.results.length; index += 1) {
-      const txSim = simulationResult.results[index];
-      const tx = transactions[index];
-      if ('error' in txSim) {
-        if (this.settings.filterSimulationReverts) {
-          transactions.splice(index, 1);
-        }
-        reverted.push(tx);
-      } else {
-        successful.push(tx);
-      }
+    const simulationResult = await this.simulateBundle(transactions);
+    if (this.settings.filterSimulationReverts) {
+      transactions = simulationResult.successfulTransactions;
     }
 
-    const simulatedEvent: SimulatedEvent = {
-      successfulTransactions: successful,
-      revertedTransactions: reverted,
-      gasPrice: simulatedGasPrice,
-      totalGasUsed: simulationResult.totalGasUsed
-    };
-    this.emit(ExecutorEvent.Simulated, simulatedEvent);
+    if (transactions.length === 0) {
+      return;
+    }
 
     const updatedSignedBundle = await this.getSignedBundle(transactions);
 
@@ -269,6 +232,35 @@ export class Executor {
     }
   }
 
+  private getTransactions(currentBlock: { timestamp: number; blockNumber: number; baseFee: BigNumber }) {
+    const minTimestamp = currentBlock.timestamp;
+    const maxTimestamp = minTimestamp + 120;
+    const targetBlockNumber = currentBlock.blockNumber + this.settings.blocksInFuture;
+    const { maxBaseFeeGwei } = getFeesAtTarget(currentBlock.baseFee, this.settings.blocksInFuture);
+    const gasPrice = maxBaseFeeGwei + this.settings.priorityFee;
+    const transactions = this.txPool.getTransactions({ minMaxGasFeeGwei: gasPrice }).map(({ id, tx }) => {
+      const txRequest: providers.TransactionRequest = {
+        gasLimit: 500_000, // required so that eth_estimateGas doesn't throw an error for invalid transactions
+        ...tx,
+        chainId: this.network.chainId,
+        type: 2,
+        maxPriorityFeePerGas: gweiToWei(this.settings.priorityFee),
+        maxFeePerGas: gweiToWei(gasPrice)
+      };
+      return {
+        id,
+        tx: txRequest
+      };
+    });
+
+    return {
+      transactions,
+      minTimestamp,
+      maxTimestamp,
+      targetBlockNumber
+    };
+  }
+
   private async getSignedBundle(transactions: { id: string; tx: providers.TransactionRequest }[]): Promise<string[]> {
     const signedBundle = await this.flashbotsProvider.signBundle(
       transactions.map(({ tx }) => {
@@ -281,25 +273,45 @@ export class Executor {
     return signedBundle;
   }
 
-  private async simulateBundle(signedBundle: string[]) {
-    const response = await this.flashbotsProvider.simulate(signedBundle, 'latest');
+  private async simulateBundle(transactions: {id: string; tx: providers.TransactionRequest}[]) {
+    const signedBundle = await this.getSignedBundle(transactions);
 
-    if ('error' in response) {
+    const simulationResult = await this.flashbotsProvider.simulate(signedBundle, 'latest');
+
+    if ('error' in simulationResult) {
       const relayError: RelayErrorEvent = {
-        message: response.error.message,
-        code: response.error.code
+        message: simulationResult.error.message,
+        code: simulationResult.error.code
       };
       this.emit(ExecutorEvent.RelayError, relayError);
-      throw new Error(response.error.message);
+      throw new Error(simulationResult.error.message);
     }
 
-    const totalGasUsed = response.totalGasUsed;
-    const gasPrice = response.coinbaseDiff.div(totalGasUsed);
+    const totalGasUsed = simulationResult.totalGasUsed;
+    const gasPrice = simulationResult.coinbaseDiff.div(totalGasUsed);
 
-    return {
-      ...response,
-      gasPrice
+    const simulatedGasPrice = gasPrice;
+    const successful: { id: string; tx: providers.TransactionRequest }[] = [];
+    const reverted: { id: string; tx: providers.TransactionRequest }[] = [];
+    for (let index = 0; index < simulationResult.results.length; index += 1) {
+      const txSim = simulationResult.results[index];
+      const tx = transactions[index];
+      if ('error' in txSim) {
+        reverted.push(tx);
+      } else {
+        successful.push(tx);
+      }
+    }
+
+    const simulatedEvent: SimulatedEvent = {
+      successfulTransactions: successful,
+      revertedTransactions: reverted,
+      gasPrice: simulatedGasPrice,
+      totalGasUsed: simulationResult.totalGasUsed
     };
+    this.emit(ExecutorEvent.Simulated, simulatedEvent);
+
+    return simulatedEvent;
   }
 
   private emit(event: ExecutorEvent, data: ExecutorEventTypes) {
