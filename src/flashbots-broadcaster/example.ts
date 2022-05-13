@@ -1,25 +1,29 @@
 import { Wallet } from '@ethersproject/wallet';
 import { providers } from 'ethers';
 import { ExecutorEvent, FlashbotsBroadcaster } from '.';
+import { ETHER } from '../constants';
 import { weiToRoundedGwei } from '../utils';
 
 async function main() {
   const AUTH_SIGNER_PRIVATE_KEY = process.env.AUTH_SIGNER_PRIVATE_KEY;
   const SIGNER_PRIVATE_KEY = process.env.SIGNER_PRIVATE_KEY;
+  const GOERLI = 5;
   let authSigner = Wallet.createRandom();
   let signer = Wallet.createRandom();
 
+  const providerUrl = process.env.PROVIDER_URL;
+  const provider = providerUrl
+    ? new providers.JsonRpcProvider(providerUrl, GOERLI)
+    : providers.getDefaultProvider(GOERLI);
+
   if (AUTH_SIGNER_PRIVATE_KEY) {
-    authSigner = new Wallet(AUTH_SIGNER_PRIVATE_KEY);
+    authSigner = new Wallet(AUTH_SIGNER_PRIVATE_KEY, provider);
     console.log(`Using authSigner from .env: ${authSigner.address}`);
   }
   if (SIGNER_PRIVATE_KEY) {
-    signer = new Wallet(SIGNER_PRIVATE_KEY);
+    signer = new Wallet(SIGNER_PRIVATE_KEY, provider);
     console.log(`Using signer from .env: ${signer.address}`);
   }
-
-  const providerUrl = process.env.PROVIDER_URL;
-  const provider = providerUrl ? new providers.JsonRpcProvider(providerUrl) : providers.getDefaultProvider(1);
 
   const executor = await FlashbotsBroadcaster.create({
     authSigner: {
@@ -60,7 +64,7 @@ async function main() {
       `Simulated transactions. Gas Used: ${simulation.totalGasUsed} Gas Price: ${simulation.gasPrice} Successful: ${simulation.successfulTransactions.length} Reverted: ${simulation.revertedTransactions.length}`
     );
     for (const tx of simulation.revertedTransactions) {
-      executor.deleteTransactionRequest(tx.id);
+      executor.remove(tx.id);
     }
   });
 
@@ -80,7 +84,7 @@ async function main() {
     );
     // handle successful transactions
     for (const tx of result.transactions) {
-      executor.deleteTransactionRequest(tx.id);
+      executor.remove(tx.id);
     }
   });
 
@@ -89,6 +93,33 @@ async function main() {
   });
 
   executor.start();
+
+  const tx: providers.TransactionRequest = {
+    data: '0x1249c58b',
+    to: '0x4EcDA24Cf0Dca2Fc77b382ED38343462AdB8cEdC',
+    value: ETHER.mul(3).div(100),
+    maxFeePerGas: 100
+  };
+
+  const tx2 = {
+    data: '0x1249c58b',
+    to: '0x4EcDA24Cf0Dca2Fc77b382ED38343462AdB8cEdC',
+    value: ETHER.mul(3).div(100),
+    maxFeePerGas: 100
+  };
+
+  const test = {
+    id: 'asdf',
+    tx: tx
+  };
+
+  const test2 = {
+    id: 'asdf2',
+    tx: tx2
+  };
+
+  executor.add(test.id, test.tx);
+  executor.add(test2.id, test2.tx);
 }
 
 void main();

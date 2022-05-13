@@ -1,8 +1,14 @@
-import { BigNumber } from 'ethers/lib/ethers';
+import { BigNumber, BigNumberish, providers } from 'ethers/lib/ethers';
 import { GWEI } from './constants';
 
 export function weiToRoundedGwei(gasPrice: BigNumber): number {
   return gasPrice.mul(100).div(GWEI).toNumber() / 100;
+}
+
+export function gweiToWei(gwei: BigNumberish): BigNumber {
+  return BigNumber.from(Math.round(Number(gwei) * 1000))
+    .mul(GWEI)
+    .div(1000);
 }
 
 export function round(value: number, numDecimals: number): number {
@@ -25,4 +31,15 @@ export function getFeesAtTarget(currentBaseFee: BigNumber, blocksInFuture: numbe
     maxBaseFeeGwei: weiToRoundedGwei(maxBaseFee),
     minBaseFeeGwei: weiToRoundedGwei(minBaseFee)
   };
+}
+
+export function getFlashbotsEndpoint(network: providers.Network): string | undefined {
+  switch (network.chainId) {
+    case 1:
+      return undefined;
+    case 5:
+      return 'https://relay-goerli.flashbots.net';
+    default:
+      throw new Error(`Network ${network.chainId} is not supported by flashbots`);
+  }
 }

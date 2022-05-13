@@ -2,7 +2,7 @@ import { FlashbotsBundleProvider, FlashbotsBundleResolution } from '@flashbots/e
 import { BigNumber, providers, Wallet } from 'ethers';
 import * as EventEmitter from 'events';
 import { TxPool } from './tx-pool';
-import { getFeesAtTarget } from '../../utils';
+import { getFeesAtTarget, getFlashbotsEndpoint, gweiToWei } from '../../utils';
 import {
   BlockEvent,
   ExecutorEvent,
@@ -31,10 +31,12 @@ export class Executor {
   private emitter: EventEmitter;
 
   static async create(options: ExecutorOptions) {
-    const authSigner = new Wallet(options.authSigner.privateKey);
-    const flashbotsProvider = await FlashbotsBundleProvider.create(options.provider, authSigner);
-    const signer = new Wallet(options.transactionSigner.privateKey);
+    const authSigner = new Wallet(options.authSigner.privateKey, options.provider);
+    const signer = new Wallet(options.transactionSigner.privateKey, options.provider);
     const network = await options.provider.getNetwork();
+    const connectionUrl = getFlashbotsEndpoint(network);
+    const flashbotsProvider = await FlashbotsBundleProvider.create(options.provider, authSigner, connectionUrl);
+    const nonce = await signer.getTransactionCount();
     return new Executor({
       authSigner,
       provider: options.provider,
@@ -44,14 +46,15 @@ export class Executor {
       network,
       allowReverts: options.allowReverts ?? false,
       filterSimulationReverts: options.filterSimulationReverts ?? true,
-      priorityFee: options.priorityFee ?? 3.5
+      priorityFee: options.priorityFee ?? 3.5,
+      nonce
     });
   }
 
   /**
    * use the create method to create a new executor instance
    */
-  private constructor(options: ExecutorInternalOptions) {
+  private constructor(options: ExecutorInternalOptions & { nonce: number }) {
     this.authSigner = options.authSigner;
     this.signer = options.signer;
     this.provider = options.provider;
@@ -99,11 +102,11 @@ export class Executor {
     this.emit(ExecutorEvent.Stopped, {});
   }
 
-  addTransactionRequest(id: string, tx: providers.TransactionRequest) {
+  add(id: string, tx: providers.TransactionRequest) {
     this.txPool.add(id, tx);
   }
 
-  deleteTransactionRequest(id: string) {
+  remove(id: string) {
     this.txPool.delete(id);
   }
 
@@ -153,15 +156,13 @@ export class Executor {
     const targetBlockNumber = currentBlock.blockNumber + this.settings.blocksInFuture;
     const { maxBaseFeeGwei } = getFeesAtTarget(currentBlock.baseFee, this.settings.blocksInFuture);
     const gasPrice = maxBaseFeeGwei + this.settings.priorityFee;
-
-    const transactions = this.txPool.getTransactions({ minMaxFeePerGasGwei: gasPrice }).map(({ id, tx }) => {
+    const transactions = this.txPool.getTransactions({ minMaxGasFeeGwei: gasPrice }).map(({ id, tx }) => {
       const txRequest: providers.TransactionRequest = {
         ...tx,
-        from: this.signer.address,
         chainId: this.network.chainId,
         type: 2,
-        maxPriorityFeePerGas: this.settings.priorityFee,
-        maxFeePerGas: gasPrice
+        maxPriorityFeePerGas: gweiToWei(this.settings.priorityFee),
+        maxFeePerGas: gweiToWei(gasPrice)
       };
       return {
         id,
@@ -235,8 +236,8 @@ export class Executor {
       case FlashbotsBundleResolution.BundleIncluded: {
         // remove transactions from pool
         const receipts = await bundleResponse.receipts();
-        const bundle = receipts.map((receipt) => {
-          const index = receipt.transactionIndex;
+        const bundle = receipts.map((receipt, i) => {
+          const index = receipt?.transactionIndex ?? i;
           const transaction = transactions[index];
           return {
             receipt,

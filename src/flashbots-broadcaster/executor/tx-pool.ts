@@ -1,5 +1,4 @@
 import { TransactionRequest } from '@ethersproject/abstract-provider';
-import { BigNumber } from 'ethers';
 
 export class TxPool {
   private pool: Map<string, TransactionRequest>;
@@ -16,7 +15,7 @@ export class TxPool {
     this.pool.delete(id);
   }
 
-  getTransactions(options: { minMaxFeePerGasGwei: number }): { id: string; tx: TransactionRequest }[] {
+  getTransactions(options: { minMaxGasFeeGwei: number }): { id: string; tx: TransactionRequest }[] {
     return Array.from(this.pool.entries())
       .map(([id, tx]: [string, TransactionRequest]) => {
         return { id, tx };
@@ -24,8 +23,10 @@ export class TxPool {
       .filter(({ tx }) => {
         if (tx.maxFeePerGas !== undefined) {
           try {
-            return BigNumber.from(tx.maxFeePerGas).gte(BigNumber.from(options.minMaxFeePerGasGwei));
+            const txMaxFeePerGas = typeof tx.maxFeePerGas === 'number' ? tx.maxFeePerGas : Number(tx.maxFeePerGas);
+            return txMaxFeePerGas > options.minMaxGasFeeGwei;
           } catch (err) {
+            console.log(err);
             return false;
           }
         }
