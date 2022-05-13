@@ -1,5 +1,5 @@
-import { FlashbotsBundleProvider } from "@flashbots/ethers-provider-bundle";
-import { providers, Wallet } from "ethers/lib/ethers";
+import { FlashbotsBundleProvider } from '@flashbots/ethers-provider-bundle';
+import { providers, Wallet } from 'ethers/lib/ethers';
 
 export interface ExecutorOptions {
   /**
@@ -45,7 +45,9 @@ export interface ExecutorOptions {
   allowReverts?: boolean;
 }
 
-export type ExecutionSettings = Required<Pick<ExecutorOptions, 'blocksInFuture' | 'allowReverts' | 'filterSimulationReverts' | 'priorityFee'>>;
+export type ExecutionSettings = Required<
+  Pick<ExecutorOptions, 'blocksInFuture' | 'allowReverts' | 'filterSimulationReverts' | 'priorityFee'>
+>;
 
 export interface ExecutorInternalOptions extends ExecutionSettings {
   flashbotsProvider: FlashbotsBundleProvider;
@@ -58,6 +60,3 @@ export interface ExecutorInternalOptions extends ExecutionSettings {
 
   network: providers.Network;
 }
-
-
-

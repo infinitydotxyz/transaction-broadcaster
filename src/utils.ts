@@ -1,5 +1,5 @@
-import { BigNumber } from "ethers/lib/ethers";
-import { GWEI } from "./constants";
+import { BigNumber } from 'ethers/lib/ethers';
+import { GWEI } from './constants';
 
 export function weiToRoundedGwei(gasPrice: BigNumber): number {
   return gasPrice.mul(100).div(GWEI).toNumber() / 100;
@@ -19,5 +19,10 @@ export function getFeesAtTarget(currentBaseFee: BigNumber, blocksInFuture: numbe
   const maxBaseFee = currentBaseFee.mul(maxIncreaseAtTarget).div(1000);
   const minBaseFee = currentBaseFee.mul(maxDecreaseAtTarget).div(1000);
 
-  return { maxBaseFeeWei: maxBaseFee, minBaseFeeWei: minBaseFee, maxBaseFeeGwei: weiToRoundedGwei(maxBaseFee), minBaseFeeGwei: weiToRoundedGwei(minBaseFee) };
+  return {
+    maxBaseFeeWei: maxBaseFee,
+    minBaseFeeWei: minBaseFee,
+    maxBaseFeeGwei: weiToRoundedGwei(maxBaseFee),
+    minBaseFeeGwei: weiToRoundedGwei(minBaseFee)
+  };
 }

@@ -29,8 +29,9 @@ export interface StartedEvent {
   signerAddress: string;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-empty-interface
 export interface StoppingEvent {}
-
+// eslint-disable-next-line @typescript-eslint/no-empty-interface
 export interface StoppedEvent {}
 
 export interface SimulatedEvent {

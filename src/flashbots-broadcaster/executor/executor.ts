@@ -15,8 +15,8 @@ import {
   StartedEvent,
   SubmittingBundleEvent,
   SuccessfulBundleSubmission
-} from './executor-emitter';
-import { ExecutionSettings, ExecutorInternalOptions, ExecutorOptions } from './executor.types';
+} from './executor-emitter.types';
+import { ExecutionSettings, ExecutorInternalOptions, ExecutorOptions } from './executor-options.types';
 
 export class Executor {
   private authSigner: Wallet;
@@ -177,11 +177,11 @@ export class Executor {
     const simulationResult = await this.simulateBundle(signedBundle);
     const simulatedGasPrice = simulationResult.gasPrice;
 
-    let successful: { id: string; tx: providers.TransactionRequest }[] = [];
-    let reverted: { id: string; tx: providers.TransactionRequest }[] = [];
+    const successful: { id: string; tx: providers.TransactionRequest }[] = [];
+    const reverted: { id: string; tx: providers.TransactionRequest }[] = [];
     for (let index = 0; index < simulationResult.results.length; index += 1) {
       const txSim = simulationResult.results[index];
-      let tx = transactions[index];
+      const tx = transactions[index];
       if ('error' in txSim) {
         if (this.settings.filterSimulationReverts) {
           transactions.splice(index, 1);
@@ -232,7 +232,7 @@ export class Executor {
 
     const bundleResolution = await bundleResponse.wait();
     switch (bundleResolution) {
-      case FlashbotsBundleResolution.BundleIncluded:
+      case FlashbotsBundleResolution.BundleIncluded: {
         // remove transactions from pool
         const receipts = await bundleResponse.receipts();
         const bundle = receipts.map((receipt) => {
@@ -256,14 +256,16 @@ export class Executor {
         };
         this.emit(ExecutorEvent.BundleResult, successfulBundleSubmission);
         break;
+      }
       case FlashbotsBundleResolution.BlockPassedWithoutInclusion:
-      case FlashbotsBundleResolution.AccountNonceTooHigh:
+      case FlashbotsBundleResolution.AccountNonceTooHigh: {
         const failedBundleSubmission: FailedBundleSubmission = {
           blockNumber: targetBlockNumber,
           reason: getFailedBundleSubmissionReason[bundleResolution]
         };
         this.emit(ExecutorEvent.BundleResult, failedBundleSubmission);
         break;
+      }
     }
   }
 

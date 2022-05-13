@@ -1,8 +1,7 @@
-
-import { Wallet } from "@ethersproject/wallet";
-import { providers } from "ethers";
-import { ExecutorEvent, FlashbotsBroadcaster } from ".";
-import { weiToRoundedGwei } from "../utils";
+import { Wallet } from '@ethersproject/wallet';
+import { providers } from 'ethers';
+import { ExecutorEvent, FlashbotsBroadcaster } from '.';
+import { weiToRoundedGwei } from '../utils';
 
 async function main() {
   const AUTH_SIGNER_PRIVATE_KEY = process.env.AUTH_SIGNER_PRIVATE_KEY;
@@ -24,16 +23,16 @@ async function main() {
 
   const executor = await FlashbotsBroadcaster.create({
     authSigner: {
-      privateKey: authSigner.privateKey,
+      privateKey: authSigner.privateKey
     },
     transactionSigner: {
-      privateKey: signer.privateKey,
+      privateKey: signer.privateKey
     },
     provider: provider,
     blocksInFuture: 2,
     priorityFee: 3.5,
     filterSimulationReverts: true,
-    allowReverts: false,
+    allowReverts: false
   });
 
   executor.on(ExecutorEvent.Block, (block) => {
@@ -41,17 +40,15 @@ async function main() {
   });
 
   executor.on(ExecutorEvent.Started, (settings) => {
-    console.log(
-      `Executor started with settings: \n${JSON.stringify(settings, null, 2)}`
-    );
+    console.log(`Executor started with settings: \n${JSON.stringify(settings, null, 2)}`);
   });
 
   executor.on(ExecutorEvent.Stopping, () => {
-    console.log("Executor stopping...");
+    console.log('Executor stopping...');
   });
 
   executor.on(ExecutorEvent.Stopped, () => {
-    console.log("Executor stopped.");
+    console.log('Executor stopped.');
   });
 
   executor.on(ExecutorEvent.Simulated, (simulation) => {
@@ -68,22 +65,16 @@ async function main() {
   });
 
   executor.on(ExecutorEvent.SubmittingBundle, (bundle) => {
-    console.log(
-      `Submitting bundle for ${bundle.transactions.length} transactions to block: ${bundle.blockNumber}`
-    );
+    console.log(`Submitting bundle for ${bundle.transactions.length} transactions to block: ${bundle.blockNumber}`);
   });
 
   executor.on(ExecutorEvent.BundleResult, (result) => {
-    if ("reason" in result) {
-      console.log(
-        `Failed to submit bundle. Block: ${result.blockNumber} Reason: ${result.reason}`
-      );
+    if ('reason' in result) {
+      console.log(`Failed to submit bundle. Block: ${result.blockNumber} Reason: ${result.reason}`);
       return;
     }
     console.log(
-      `Submitted bundle. Block: ${
-        result.blockNumber
-      }. Gas Used: ${result.totalGasUsed.toString()} Transactions: ${
+      `Submitted bundle. Block: ${result.blockNumber}. Gas Used: ${result.totalGasUsed.toString()} Transactions: ${
         result.transactions.length
       }`
     );
@@ -98,7 +89,6 @@ async function main() {
   });
 
   executor.start();
-
 }
 
-main();
+void main();
