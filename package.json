@@ -6,7 +6,8 @@
     "clean": "rimraf dist",
     "format": "prettier --write \"src/**/*.ts\"",
     "lint": "eslint \"./src/**/*.ts\" --fix",
-    "start:dev": "ts-node ./src/index.ts",
+    "start:dev": "ts-node -r dotenv/config ./src/index.ts",
+    "start:fb:example": "ts-node -r dotenv/config ./src/flashbots-broadcaster/example.ts",
     "update:lib": "npm install @infinityxyz/lib@latest"
   },
   "devDependencies": {
