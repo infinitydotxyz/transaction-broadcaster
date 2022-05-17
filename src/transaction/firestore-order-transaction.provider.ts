@@ -1,6 +1,13 @@
 import { TransactionProvider } from './transaction.provider.abstract';
 import { firestoreConstants } from '@infinityxyz/lib/utils/constants';
-import { ChainId, ChainNFTs, ChainOBOrder, FirestoreOrder, FirestoreOrderMatch, FirestoreOrderMatchStatus } from '@infinityxyz/lib/types/core';
+import {
+  ChainId,
+  ChainNFTs,
+  ChainOBOrder,
+  FirestoreOrder,
+  FirestoreOrderMatch,
+  FirestoreOrderMatchStatus
+} from '@infinityxyz/lib/types/core';
 import { TransactionProviderEvent } from './transaction.provider.interface';
 import { ethers, providers } from 'ethers';
 import { infinityExchangeAbi } from '../abi/infinity-exchange.abi';
@@ -40,6 +47,22 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
     });
   }
 
+  async transactionReverted(id: string): Promise<void> {
+    try {
+      await this.deleteOrderMatch(id);
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  async transactionCompleted(id: string): Promise<void> {
+    try {
+      await this.deleteOrderMatch(id);
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
   private async handleOrderMatchUpdate(id: string, match: FirestoreOrderMatch): Promise<void> {
     try {
       if (match.status !== FirestoreOrderMatchStatus.Active) {
@@ -55,17 +78,21 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
     }
   }
 
-  private async createTransaction(listing: FirestoreOrder, offer: FirestoreOrder, match: FirestoreOrderMatch): Promise<providers.TransactionRequest> { 
+  private async createTransaction(
+    listing: FirestoreOrder,
+    offer: FirestoreOrder,
+    match: FirestoreOrderMatch
+  ): Promise<providers.TransactionRequest> {
     const chainNfts: ChainNFTs[] = [];
-    for(const {listing, offer} of match.matches) {
+    for (const { listing, offer } of match.matches) {
       const address = listing.collectionAddress;
 
       let collectionChainNfts = chainNfts.find((item) => item.collection === address);
-      if(!collectionChainNfts) {
+      if (!collectionChainNfts) {
         collectionChainNfts = {
           collection: address,
           tokens: []
-        }
+        };
       }
 
       const tokenId = listing.tokenId || offer.tokenId;
@@ -79,12 +106,20 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
     const constructed: ChainOBOrder = {
       isSellOrder: true,
       signer: '',
-      constraints: [match.matches.length, offer.signedOrder.constraints[1], offer.signedOrder.constraints[2], offer.signedOrder.constraints[3],offer.signedOrder.constraints[4], offer.minBpsToSeller, offer.nonce],
+      constraints: [
+        match.matches.length,
+        offer.signedOrder.constraints[1],
+        offer.signedOrder.constraints[2],
+        offer.signedOrder.constraints[3],
+        offer.signedOrder.constraints[4],
+        offer.minBpsToSeller,
+        offer.nonce
+      ],
       nfts: chainNfts,
       execParams: [listing.complicationAddress, listing.currencyAddress],
       extraParams: [],
       sig: ''
-    }
+    };
 
     const provider = getProvider(listing.chainId as ChainId);
     const contract = new ethers.Contract(listing.complicationAddress, infinityExchangeAbi, provider);
@@ -130,14 +165,6 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
     }
 
     return { listing, offer };
-  }
-
-  async transactionReverted(id: string): Promise<void> {
-    try {
-      await this.deleteOrderMatch(id);
-    } catch (err) {
-      console.error(err);
-    }
   }
 
   private async deleteOrderMatch(id: string) {

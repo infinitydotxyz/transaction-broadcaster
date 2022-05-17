@@ -16,7 +16,11 @@ import {
   SubmittingBundleEvent,
   SuccessfulBundleSubmission
 } from './flashbots-broadcaster-emitter.types';
-import { FlashbotsBroadcasterSettings, FlashbotsBroadcasterInternalOptions, FlashbotsBroadcasterOptions } from './flashbots-broadcaster-options.types';
+import {
+  FlashbotsBroadcasterSettings,
+  FlashbotsBroadcasterInternalOptions,
+  FlashbotsBroadcasterOptions
+} from './flashbots-broadcaster-options.types';
 
 export class FlashbotsBroadcaster {
   private authSigner: Wallet;
