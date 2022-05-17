@@ -5,8 +5,8 @@ import { TxPool } from './tx-pool';
 import { getFeesAtTarget, getFlashbotsEndpoint, gweiToWei } from '../../utils';
 import {
   BlockEvent,
-  ExecutorEvent,
-  ExecutorEventTypes,
+  FlashbotsBroadcasterEvent,
+  FlashbotsBroadcasterEventTypes,
   FailedBundleSubmission,
   GetEventType,
   getFailedBundleSubmissionReason,
@@ -15,10 +15,10 @@ import {
   StartedEvent,
   SubmittingBundleEvent,
   SuccessfulBundleSubmission
-} from './executor-emitter.types';
-import { ExecutionSettings, ExecutorInternalOptions, ExecutorOptions } from './executor-options.types';
+} from './flashbots-broadcaster-emitter.types';
+import { FlashbotsBroadcasterSettings, FlashbotsBroadcasterInternalOptions, FlashbotsBroadcasterOptions } from './flashbots-broadcaster-options.types';
 
-export class Executor {
+export class FlashbotsBroadcaster {
   private authSigner: Wallet;
   private signer: Wallet;
   private provider: providers.BaseProvider;
@@ -26,17 +26,17 @@ export class Executor {
   private txPool: TxPool;
   private mutex: boolean;
   private readonly network: providers.Network;
-  private readonly settings: ExecutionSettings;
+  private readonly settings: FlashbotsBroadcasterSettings;
   private shutdown?: () => Promise<void>;
   private emitter: EventEmitter;
 
-  static async create(options: ExecutorOptions) {
+  static async create(options: FlashbotsBroadcasterOptions) {
     const authSigner = new Wallet(options.authSigner.privateKey, options.provider);
     const signer = new Wallet(options.transactionSigner.privateKey, options.provider);
     const network = await options.provider.getNetwork();
     const connectionUrl = getFlashbotsEndpoint(network);
     const flashbotsProvider = await FlashbotsBundleProvider.create(options.provider, authSigner, connectionUrl);
-    return new Executor({
+    return new FlashbotsBroadcaster({
       authSigner,
       provider: options.provider,
       flashbotsProvider,
@@ -50,9 +50,9 @@ export class Executor {
   }
 
   /**
-   * use the create method to create a new executor instance
+   * use the create method to create a new FlashbotsBroadcaster instance
    */
-  private constructor(options: ExecutorInternalOptions) {
+  private constructor(options: FlashbotsBroadcasterInternalOptions) {
     this.authSigner = options.authSigner;
     this.signer = options.signer;
     this.provider = options.provider;
@@ -70,7 +70,7 @@ export class Executor {
   }
 
   /**
-   * start the executor to begin submitting transactions
+   * start the FlashbotsBroadcaster to begin submitting transactions
    * and monitoring blocks/gas prices
    */
   start() {
@@ -85,19 +85,19 @@ export class Executor {
       authSignerAddress: this.authSigner.address,
       signerAddress: this.signer.address
     };
-    this.emit(ExecutorEvent.Started, startedEvent);
+    this.emit(FlashbotsBroadcasterEvent.Started, startedEvent);
   }
 
   /**
-   * stop the executor
+   * stop the FlashbotsBroadcaster
    */
   async stop() {
-    this.emit(ExecutorEvent.Stopping, {});
+    this.emit(FlashbotsBroadcasterEvent.Stopping, {});
     if (this.shutdown && typeof this.shutdown === 'function') {
       await this.shutdown();
     }
     this.mutex = false;
-    this.emit(ExecutorEvent.Stopped, {});
+    this.emit(FlashbotsBroadcasterEvent.Stopped, {});
   }
 
   add(id: string, tx: providers.TransactionRequest) {
@@ -108,11 +108,11 @@ export class Executor {
     this.txPool.delete(id);
   }
 
-  on<Event extends ExecutorEvent>(event: Event, listener: (data: GetEventType[Event]) => void) {
+  on<Event extends FlashbotsBroadcasterEvent>(event: Event, listener: (data: GetEventType[Event]) => void) {
     this.emitter.on(event, listener);
   }
 
-  off<Event extends ExecutorEvent>(event: Event, listener: (data: GetEventType[Event]) => void) {
+  off<Event extends FlashbotsBroadcasterEvent>(event: Event, listener: (data: GetEventType[Event]) => void) {
     this.emitter.off(event, listener);
   }
 
@@ -141,7 +141,7 @@ export class Executor {
         blockNumber,
         gasPrice: baseFee
       };
-      this.emit(ExecutorEvent.Block, blockEvent);
+      this.emit(FlashbotsBroadcasterEvent.Block, blockEvent);
       await this.execute({ blockNumber, timestamp, baseFee });
     } catch (err) {
       console.error(err);
@@ -177,7 +177,7 @@ export class Executor {
       maxTimestamp,
       transactions
     };
-    this.emit(ExecutorEvent.SubmittingBundle, submittingEvent);
+    this.emit(FlashbotsBroadcasterEvent.SubmittingBundle, submittingEvent);
 
     const bundleResponse = await this.flashbotsProvider.sendRawBundle(updatedSignedBundle, targetBlockNumber, {
       minTimestamp,
@@ -190,7 +190,7 @@ export class Executor {
         message: bundleResponse.error.message,
         code: bundleResponse.error.code
       };
-      this.emit(ExecutorEvent.RelayError, relayError);
+      this.emit(FlashbotsBroadcasterEvent.RelayError, relayError);
       return;
     }
 
@@ -217,7 +217,7 @@ export class Executor {
           blockNumber: targetBlockNumber,
           totalGasUsed
         };
-        this.emit(ExecutorEvent.BundleResult, successfulBundleSubmission);
+        this.emit(FlashbotsBroadcasterEvent.BundleResult, successfulBundleSubmission);
         break;
       }
       case FlashbotsBundleResolution.BlockPassedWithoutInclusion:
@@ -226,7 +226,7 @@ export class Executor {
           blockNumber: targetBlockNumber,
           reason: getFailedBundleSubmissionReason[bundleResolution]
         };
-        this.emit(ExecutorEvent.BundleResult, failedBundleSubmission);
+        this.emit(FlashbotsBroadcasterEvent.BundleResult, failedBundleSubmission);
         break;
       }
     }
@@ -283,7 +283,7 @@ export class Executor {
         message: simulationResult.error.message,
         code: simulationResult.error.code
       };
-      this.emit(ExecutorEvent.RelayError, relayError);
+      this.emit(FlashbotsBroadcasterEvent.RelayError, relayError);
       throw new Error(simulationResult.error.message);
     }
 
@@ -309,12 +309,12 @@ export class Executor {
       gasPrice: simulatedGasPrice,
       totalGasUsed: simulationResult.totalGasUsed
     };
-    this.emit(ExecutorEvent.Simulated, simulatedEvent);
+    this.emit(FlashbotsBroadcasterEvent.Simulated, simulatedEvent);
 
     return simulatedEvent;
   }
 
-  private emit(event: ExecutorEvent, data: ExecutorEventTypes) {
+  private emit(event: FlashbotsBroadcasterEvent, data: FlashbotsBroadcasterEventTypes) {
     this.emitter.emit(event, data);
   }
 }

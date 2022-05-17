@@ -1,8 +1,10 @@
 import { TransactionProvider } from './transaction.provider.abstract';
 import { firestoreConstants } from '@infinityxyz/lib/utils/constants';
-import { FirestoreOrder, FirestoreOrderMatch, FirestoreOrderMatchStatus } from '@infinityxyz/lib/types/core';
+import { ChainId, ChainNFTs, ChainOBOrder, FirestoreOrder, FirestoreOrderMatch, FirestoreOrderMatchStatus } from '@infinityxyz/lib/types/core';
 import { TransactionProviderEvent } from './transaction.provider.interface';
-import { providers } from 'ethers';
+import { ethers, providers } from 'ethers';
+import { infinityExchangeAbi } from '../abi/infinity-exchange.abi';
+import { getProvider } from '../ethers';
 
 export class FirestoreOrderTransactionProvider extends TransactionProvider {
   constructor(private db: FirebaseFirestore.Firestore) {
@@ -45,29 +47,61 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
       }
 
       const { listing, offer } = await this.getOrders(match);
+      const transaction = await this.createTransaction(listing, offer, match);
 
-      const transaction = this.createTransaction(listing, offer);
-
-      // TODO send transaction to client
+      this.emit(TransactionProviderEvent.Update, { id, transaction });
     } catch (err) {
       console.error(err);
     }
   }
 
-  private createTransaction(listing: FirestoreOrder, offer: FirestoreOrder): providers.TransactionRequest {
-    const order = {
-      isSellOrder: listing.isSellOrder,
-      signer: listing.signedOrder.signer,
-      constraints: listing.signedOrder.constraints,
-      nfts: listing.signedOrder.nfts, // TODO do I have to filter out nfts that are not part of the match?
-      execParams: listing.signedOrder.execParams,
-      extraParams: listing.signedOrder.extraParams,
-      sig: listing.signedOrder.sig
-    };
+  private async createTransaction(listing: FirestoreOrder, offer: FirestoreOrder, match: FirestoreOrderMatch): Promise<providers.TransactionRequest> { 
+    const chainNfts: ChainNFTs[] = [];
+    for(const {listing, offer} of match.matches) {
+      const address = listing.collectionAddress;
+
+      let collectionChainNfts = chainNfts.find((item) => item.collection === address);
+      if(!collectionChainNfts) {
+        collectionChainNfts = {
+          collection: address,
+          tokens: []
+        }
+      }
+
+      const tokenId = listing.tokenId || offer.tokenId;
+      const quantity = listing.numTokens ?? offer.numTokens;
+
+      collectionChainNfts.tokens.push({
+        tokenId: tokenId,
+        numTokens: quantity
+      });
+    }
+    const constructed: ChainOBOrder = {
+      isSellOrder: true,
+      signer: '',
+      constraints: [match.matches.length, offer.signedOrder.constraints[1], offer.signedOrder.constraints[2], offer.signedOrder.constraints[3],offer.signedOrder.constraints[4], offer.minBpsToSeller, offer.nonce],
+      nfts: chainNfts,
+      execParams: [listing.complicationAddress, listing.currencyAddress],
+      extraParams: [],
+      sig: ''
+    }
+
+    const provider = getProvider(listing.chainId as ChainId);
+    const contract = new ethers.Contract(listing.complicationAddress, infinityExchangeAbi, provider);
+
+    const sells = [listing.signedOrder];
+    const buys = [offer.signedOrder];
+    const orders = [constructed];
+    const gasEstimate = await contract.estimateGas.matchOrders(sells, buys, orders);
+    const gasLimit = gasEstimate.toNumber();
+    const data = contract.interface.encodeFunctionData(contract.interface.functions.matchOrders, [sells, buys, orders]);
+    console.log(`Gas Limit: ${gasLimit}`);
+    console.log(`Data: ${data}`);
+
     return {
       to: listing.complicationAddress,
-      gasLimit: 1_000_000,
-      data: '', // TODO encode orders
+      gasLimit: gasLimit,
+      data,
       chainId: parseInt(listing.chainId)
     };
   }

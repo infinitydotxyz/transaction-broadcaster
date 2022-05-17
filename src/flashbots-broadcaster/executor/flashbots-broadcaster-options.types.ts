@@ -1,7 +1,7 @@
 import { FlashbotsBundleProvider } from '@flashbots/ethers-provider-bundle';
 import { providers, Wallet } from 'ethers/lib/ethers';
 
-export interface ExecutorOptions {
+export interface FlashbotsBroadcasterOptions {
   /**
    * auth signer used by Flashbots to identify the sender
    */
@@ -45,11 +45,11 @@ export interface ExecutorOptions {
   allowReverts?: boolean;
 }
 
-export type ExecutionSettings = Required<
-  Pick<ExecutorOptions, 'blocksInFuture' | 'allowReverts' | 'filterSimulationReverts' | 'priorityFee'>
+export type FlashbotsBroadcasterSettings = Required<
+  Pick<FlashbotsBroadcasterOptions, 'blocksInFuture' | 'allowReverts' | 'filterSimulationReverts' | 'priorityFee'>
 >;
 
-export interface ExecutorInternalOptions extends ExecutionSettings {
+export interface FlashbotsBroadcasterInternalOptions extends FlashbotsBroadcasterSettings {
   flashbotsProvider: FlashbotsBundleProvider;
 
   provider: providers.BaseProvider;

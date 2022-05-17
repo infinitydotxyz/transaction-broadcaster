@@ -1,10 +1,10 @@
 import { FlashbotsBundleResolution } from '@flashbots/ethers-provider-bundle';
 import { BigNumber, providers } from 'ethers/lib/ethers';
-import { ExecutionSettings } from './executor-options.types';
+import { FlashbotsBroadcasterSettings } from './flashbots-broadcaster-options.types';
 
-export enum ExecutorEvent {
+export enum FlashbotsBroadcasterEvent {
   /**
-   * executor lifecycle
+   * FlashbotsBroadcaster lifecycle
    */
   Started = 'started',
   Stopping = 'stopping',
@@ -20,7 +20,7 @@ export enum ExecutorEvent {
 }
 
 export interface StartedEvent {
-  settings: ExecutionSettings;
+  settings: FlashbotsBroadcasterSettings;
 
   network: providers.Network;
 
@@ -89,17 +89,17 @@ export interface BlockEvent {
 }
 
 export type GetEventType = {
-  [ExecutorEvent.Block]: BlockEvent;
-  [ExecutorEvent.Started]: StartedEvent;
-  [ExecutorEvent.Stopping]: StoppingEvent;
-  [ExecutorEvent.Stopped]: StoppedEvent;
-  [ExecutorEvent.Simulated]: SimulatedEvent;
-  [ExecutorEvent.SubmittingBundle]: SubmittingBundleEvent;
-  [ExecutorEvent.BundleResult]: BundleSubmissionResultEvent;
-  [ExecutorEvent.RelayError]: RelayErrorEvent;
+  [FlashbotsBroadcasterEvent.Block]: BlockEvent;
+  [FlashbotsBroadcasterEvent.Started]: StartedEvent;
+  [FlashbotsBroadcasterEvent.Stopping]: StoppingEvent;
+  [FlashbotsBroadcasterEvent.Stopped]: StoppedEvent;
+  [FlashbotsBroadcasterEvent.Simulated]: SimulatedEvent;
+  [FlashbotsBroadcasterEvent.SubmittingBundle]: SubmittingBundleEvent;
+  [FlashbotsBroadcasterEvent.BundleResult]: BundleSubmissionResultEvent;
+  [FlashbotsBroadcasterEvent.RelayError]: RelayErrorEvent;
 };
 
-export type ExecutorEventTypes =
+export type FlashbotsBroadcasterEventTypes =
   | StartedEvent
   | StoppingEvent
   | StoppedEvent

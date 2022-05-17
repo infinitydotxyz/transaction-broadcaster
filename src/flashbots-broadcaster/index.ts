@@ -1,5 +1,5 @@
-import { Executor } from './executor/executor';
-export * from './executor/executor-options.types';
-export * from './executor/executor-emitter.types';
+import { FlashbotsBroadcaster } from './executor/flashbots-broadcaster';
+export * from './executor/flashbots-broadcaster-options.types';
+export * from './executor/flashbots-broadcaster-emitter.types';
 
-export { Executor as FlashbotsBroadcaster };
+export { FlashbotsBroadcaster };

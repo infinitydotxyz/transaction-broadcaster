@@ -1,6 +1,6 @@
 import { Wallet } from '@ethersproject/wallet';
 import { providers } from 'ethers';
-import { ExecutorEvent, FlashbotsBroadcaster } from '.';
+import { FlashbotsBroadcasterEvent, FlashbotsBroadcaster } from '.';
 import { ETHER } from '../constants';
 import { weiToRoundedGwei } from '../utils';
 
@@ -39,23 +39,23 @@ async function main() {
     allowReverts: false
   });
 
-  executor.on(ExecutorEvent.Block, (block) => {
+  executor.on(FlashbotsBroadcasterEvent.Block, (block) => {
     console.log(`Current block: ${block.blockNumber}. Gas price: ${weiToRoundedGwei(block.gasPrice)}`);
   });
 
-  executor.on(ExecutorEvent.Started, (settings) => {
-    console.log(`Executor started with settings: \n${JSON.stringify(settings, null, 2)}`);
+  executor.on(FlashbotsBroadcasterEvent.Started, (settings) => {
+    console.log(`FlashbotsBroadcaster started with settings: \n${JSON.stringify(settings, null, 2)}`);
   });
 
-  executor.on(ExecutorEvent.Stopping, () => {
-    console.log('Executor stopping...');
+  executor.on(FlashbotsBroadcasterEvent.Stopping, () => {
+    console.log('FlashbotsBroadcaster stopping...');
   });
 
-  executor.on(ExecutorEvent.Stopped, () => {
-    console.log('Executor stopped.');
+  executor.on(FlashbotsBroadcasterEvent.Stopped, () => {
+    console.log('FlashbotsBroadcaster stopped.');
   });
 
-  executor.on(ExecutorEvent.Simulated, (simulation) => {
+  executor.on(FlashbotsBroadcasterEvent.Simulated, (simulation) => {
     /**
      * clients are responsible for removing transactions from the pool
      * if they don't want them to be simulated/submitted again
@@ -68,11 +68,11 @@ async function main() {
     }
   });
 
-  executor.on(ExecutorEvent.SubmittingBundle, (bundle) => {
+  executor.on(FlashbotsBroadcasterEvent.SubmittingBundle, (bundle) => {
     console.log(`Submitting bundle for ${bundle.transactions.length} transactions to block: ${bundle.blockNumber}`);
   });
 
-  executor.on(ExecutorEvent.BundleResult, (result) => {
+  executor.on(FlashbotsBroadcasterEvent.BundleResult, (result) => {
     if ('reason' in result) {
       console.log(`Failed to submit bundle. Block: ${result.blockNumber} Reason: ${result.reason}`);
       return;
@@ -88,7 +88,7 @@ async function main() {
     }
   });
 
-  executor.on(ExecutorEvent.RelayError, (result) => {
+  executor.on(FlashbotsBroadcasterEvent.RelayError, (result) => {
     console.log(`Relay error. Block: ${result.message} Code: ${result.code}`);
   });
 
