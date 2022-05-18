@@ -5,25 +5,14 @@ import { ETHER } from '../constants';
 import { weiToRoundedGwei } from '../utils';
 
 async function main() {
-  const AUTH_SIGNER_PRIVATE_KEY = process.env.AUTH_SIGNER_PRIVATE_KEY;
-  const SIGNER_PRIVATE_KEY = process.env.SIGNER_PRIVATE_KEY;
   const GOERLI = 5;
-  let authSigner = Wallet.createRandom();
-  let signer = Wallet.createRandom();
+  const authSigner = Wallet.createRandom();
+  const signer = Wallet.createRandom();
 
   const providerUrl = process.env.PROVIDER_URL;
   const provider = providerUrl
     ? new providers.JsonRpcProvider(providerUrl, GOERLI)
     : providers.getDefaultProvider(GOERLI);
-
-  if (AUTH_SIGNER_PRIVATE_KEY) {
-    authSigner = new Wallet(AUTH_SIGNER_PRIVATE_KEY, provider);
-    console.log(`Using authSigner from .env: ${authSigner.address}`);
-  }
-  if (SIGNER_PRIVATE_KEY) {
-    signer = new Wallet(SIGNER_PRIVATE_KEY, provider);
-    console.log(`Using signer from .env: ${signer.address}`);
-  }
 
   const executor = await FlashbotsBroadcaster.create({
     authSigner: {

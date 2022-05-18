@@ -1,5 +1,6 @@
 import { ChainId } from '@infinityxyz/lib/types/core/ChainId';
 import { providers } from 'ethers';
+import { getEnvVariable } from './constants';
 
 const providersByChainId: Map<ChainId, providers.BaseProvider> = new Map();
 
@@ -16,11 +17,7 @@ export function getProviderUrl(chainId: ChainId) {
       envVariable = 'PROVIDER_URL_POLYGON';
       break;
   }
-  const providerUrl = process.env[envVariable];
-
-  if (!providerUrl) {
-    throw new Error(`Missing environment variable ${envVariable}`);
-  }
+  const providerUrl = getEnvVariable(envVariable, true);
 
   return providerUrl;
 }

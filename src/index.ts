@@ -1,5 +1,5 @@
 import { ChainId } from '@infinityxyz/lib/types/core';
-import { Wallet } from 'ethers';
+import { AUTH_SIGNER_MAINNET, SIGNER_MAINNET, AUTH_SIGNER_GOERLI, SIGNER_GOERLI } from './constants';
 import { getProvider } from './ethers';
 import { getDb } from './firestore';
 import { FlashbotsBroadcasterEvent, FlashbotsBroadcasterOptions, FlashbotsBroadcaster } from './flashbots-broadcaster';
@@ -9,19 +9,22 @@ import { TransactionProviderEvent } from './transaction/transaction.provider.int
 const db = getDb();
 const firestoreProvider = new FirestoreOrderTransactionProvider(db);
 
-const flashbotsOptions: Pick<FlashbotsBroadcasterOptions, 'blocksInFuture' | 'priorityFee' | 'filterSimulationReverts' | 'allowReverts'> = {
-    blocksInFuture: 2,
-    priorityFee: 3.5,
-    filterSimulationReverts: true,
-    allowReverts: false
+const flashbotsOptions: Pick<
+  FlashbotsBroadcasterOptions,
+  'blocksInFuture' | 'priorityFee' | 'filterSimulationReverts' | 'allowReverts'
+> = {
+  blocksInFuture: 2,
+  priorityFee: 3.5,
+  filterSimulationReverts: true,
+  allowReverts: false
 };
 
 const flashbotsOptionsMainnet: FlashbotsBroadcasterOptions = {
   authSigner: {
-    privateKey: Wallet.createRandom().privateKey
+    privateKey: AUTH_SIGNER_MAINNET
   },
   transactionSigner: {
-    privateKey: Wallet.createRandom().privateKey
+    privateKey: SIGNER_MAINNET
   },
   provider: getProvider(ChainId.Mainnet),
   ...flashbotsOptions
@@ -29,10 +32,10 @@ const flashbotsOptionsMainnet: FlashbotsBroadcasterOptions = {
 
 const flashbotsOptionsGoerli: FlashbotsBroadcasterOptions = {
   authSigner: {
-    privateKey: Wallet.createRandom().privateKey
+    privateKey: AUTH_SIGNER_GOERLI
   },
   transactionSigner: {
-    privateKey: Wallet.createRandom().privateKey
+    privateKey: SIGNER_GOERLI
   },
   provider: getProvider(ChainId.Goerli),
   ...flashbotsOptions
