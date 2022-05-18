@@ -2,7 +2,7 @@ import { FlashbotsBundleProvider, FlashbotsBundleResolution } from '@flashbots/e
 import { BigNumber, providers, Wallet } from 'ethers';
 import * as EventEmitter from 'events';
 import { TxPool } from './tx-pool';
-import { getFeesAtTarget, getFlashbotsEndpoint, gweiToWei } from '../../utils';
+import { getFeesAtTarget, getFlashbotsEndpoint, gweiToWei } from '../utils';
 import {
   BlockEvent,
   FlashbotsBroadcasterEvent,

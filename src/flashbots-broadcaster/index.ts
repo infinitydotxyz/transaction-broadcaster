@@ -1,5 +1,5 @@
-import { FlashbotsBroadcaster } from './executor/flashbots-broadcaster';
-export * from './executor/flashbots-broadcaster-options.types';
-export * from './executor/flashbots-broadcaster-emitter.types';
+import { FlashbotsBroadcaster } from './flashbots-broadcaster';
+export * from './flashbots-broadcaster-options.types';
+export * from './flashbots-broadcaster-emitter.types';
 
 export { FlashbotsBroadcaster };

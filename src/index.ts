@@ -9,6 +9,13 @@ import { TransactionProviderEvent } from './transaction/transaction.provider.int
 const db = getDb();
 const firestoreProvider = new FirestoreOrderTransactionProvider(db);
 
+const flashbotsOptions: Pick<FlashbotsBroadcasterOptions, 'blocksInFuture' | 'priorityFee' | 'filterSimulationReverts' | 'allowReverts'> = {
+    blocksInFuture: 2,
+    priorityFee: 3.5,
+    filterSimulationReverts: true,
+    allowReverts: false
+};
+
 const flashbotsOptionsMainnet: FlashbotsBroadcasterOptions = {
   authSigner: {
     privateKey: Wallet.createRandom().privateKey
@@ -17,10 +24,7 @@ const flashbotsOptionsMainnet: FlashbotsBroadcasterOptions = {
     privateKey: Wallet.createRandom().privateKey
   },
   provider: getProvider(ChainId.Mainnet),
-  blocksInFuture: 2,
-  priorityFee: 3.5,
-  filterSimulationReverts: true,
-  allowReverts: false
+  ...flashbotsOptions
 };
 
 const flashbotsOptionsGoerli: FlashbotsBroadcasterOptions = {
@@ -31,12 +35,10 @@ const flashbotsOptionsGoerli: FlashbotsBroadcasterOptions = {
     privateKey: Wallet.createRandom().privateKey
   },
   provider: getProvider(ChainId.Goerli),
-  blocksInFuture: 2,
-  priorityFee: 3.5,
-  filterSimulationReverts: true,
-  allowReverts: false
+  ...flashbotsOptions
 };
 
+// TODO add support for sending multiple order matches in a single transaction
 async function main() {
   const mainnetBroadcaster = await FlashbotsBroadcaster.create(flashbotsOptionsMainnet);
   const goerliBroadcaster = await FlashbotsBroadcaster.create(flashbotsOptionsGoerli);
