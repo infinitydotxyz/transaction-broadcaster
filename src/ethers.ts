@@ -29,6 +29,7 @@ export function getProvider(chainId: ChainId): providers.BaseProvider {
     const chainIdNum = parseInt(chainId, 10);
     const providerUrl = getProviderUrl(chainId);
     provider = new providers.JsonRpcProvider(providerUrl, chainIdNum);
+    providersByChainId.set(chainId, provider);
   }
   return provider;
 }

@@ -9,9 +9,10 @@ import {
   FirestoreOrderMatchStatus
 } from '@infinityxyz/lib/types/core';
 import { TransactionProviderEvent } from './transaction.provider.interface';
-import { ethers, providers } from 'ethers';
+import { Contract, providers } from 'ethers';
 import { infinityExchangeAbi } from '../abi/infinity-exchange.abi';
 import { getProvider } from '../ethers';
+import { getExchangeAddress } from '@infinityxyz/lib/utils/orders';
 
 export class FirestoreOrderTransactionProvider extends TransactionProvider {
   constructor(private db: FirebaseFirestore.Firestore) {
@@ -93,6 +94,7 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
           collection: address,
           tokens: []
         };
+        chainNfts.push(collectionChainNfts);
       }
 
       const tokenId = listing.tokenId || offer.tokenId;
@@ -105,7 +107,7 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
     }
     const constructed: ChainOBOrder = {
       isSellOrder: true,
-      signer: '',
+      signer: listing.signedOrder.signer,
       constraints: [
         match.matches.length,
         offer.signedOrder.constraints[1],
@@ -118,23 +120,33 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
       nfts: chainNfts,
       execParams: [listing.complicationAddress, listing.currencyAddress],
       extraParams: [],
-      sig: ''
+      sig: listing.signedOrder.sig
     };
 
     const provider = getProvider(listing.chainId as ChainId);
-    const contract = new ethers.Contract(listing.complicationAddress, infinityExchangeAbi, provider);
-
+    const exchange = getExchangeAddress(listing.chainId);
+    if (!exchange) {
+      throw new Error(`Invalid chain id. Exchange not supported`);
+    }
+    const contract = new Contract(exchange, infinityExchangeAbi, provider);
     const sells = [listing.signedOrder];
     const buys = [offer.signedOrder];
     const orders = [constructed];
-    const gasEstimate = await contract.estimateGas.matchOrders(sells, buys, orders);
-    const gasLimit = gasEstimate.toNumber();
-    const data = contract.interface.encodeFunctionData(contract.interface.functions.matchOrders, [sells, buys, orders]);
-    console.log(`Gas Limit: ${gasLimit}`);
-    console.log(`Data: ${data}`);
+    const tradingRewards = false; // TODO where should this come from?
+    const feeDiscountEnabled = false; // TODO
+    const args = [sells, buys, orders, tradingRewards, feeDiscountEnabled];
+    const fn = contract.interface.getFunction('matchOrders');
+    const data = contract.interface.encodeFunctionData(fn, args);
+
+    const estimate = await provider.estimateGas({
+      to: exchange,
+      data
+    });
+
+    const gasLimit = estimate.toNumber();
 
     return {
-      to: listing.complicationAddress,
+      to: exchange,
       gasLimit: gasLimit,
       data,
       chainId: parseInt(listing.chainId)

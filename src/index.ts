@@ -58,6 +58,7 @@ async function main() {
     broadcaster.on(FlashbotsBroadcasterEvent.Block, console.log);
     broadcaster.on(FlashbotsBroadcasterEvent.Simulated, async (event) => {
       try {
+        console.log(`Simulated`, JSON.stringify(event, null, 2));
         await Promise.all(event.revertedTransactions.map((tx) => firestoreProvider.transactionReverted(tx.id)));
       } catch (err) {
         console.log(err);
@@ -69,6 +70,8 @@ async function main() {
         console.error(event.reason);
       } else {
         try {
+          console.log(`Result`)
+          console.log(JSON.stringify(event, null, 2));
           await Promise.all(event.transactions.map((tx) => firestoreProvider.transactionCompleted(tx.id)));
         } catch (err) {
           console.log(err);
