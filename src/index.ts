@@ -70,7 +70,7 @@ async function main() {
         console.error(event.reason);
       } else {
         try {
-          console.log(`Result`)
+          console.log(`Result`);
           console.log(JSON.stringify(event, null, 2));
           await Promise.all(event.transactions.map((tx) => firestoreProvider.transactionCompleted(tx.id)));
         } catch (err) {
