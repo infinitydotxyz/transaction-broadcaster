@@ -134,7 +134,7 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
     const buys = [offer.signedOrder];
     const orders = [constructed];
     const tradingRewards = false;
-    const feeDiscountEnabled = false; 
+    const feeDiscountEnabled = false;
     const args = [sells, buys, orders, tradingRewards, feeDiscountEnabled]; // TODO remove trading rewards and fee discount enabled
     const fn = contract.interface.getFunction('matchOrders');
     const data = contract.interface.encodeFunctionData(fn, args);
