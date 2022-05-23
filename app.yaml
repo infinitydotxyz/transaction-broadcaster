@@ -1,4 +1,4 @@
-service: nft-sales-listener
+service: transaction-broadcaster
 runtime: nodejs
 env: flex
 automatic_scaling:
