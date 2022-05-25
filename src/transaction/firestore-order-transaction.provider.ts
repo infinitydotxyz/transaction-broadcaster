@@ -5,6 +5,7 @@ import {
   ChainNFTs,
   ChainOBOrder,
   FirestoreOrder,
+  FirestoreOrderItemMatch,
   FirestoreOrderMatch,
   FirestoreOrderMatchStatus
 } from '@infinityxyz/lib/types/core';
@@ -60,6 +61,7 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
     try {
       await this.deleteOrderMatch(id);
       // TODO should we mark the order as invalid that it's been fulfilled?
+      // TODO how do we know that this has been completed and it wasn't just skipped??
     } catch (err) {
       console.error(err);
     }
@@ -72,7 +74,8 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
       }
 
       const { listing, offer } = await this.getOrders(match);
-      const transaction = await this.createTransaction(listing, offer, match);
+      const matches = await this.getMatchItems(match.id);
+      const transaction = await this.createTransaction(listing, offer, match, matches);
 
       this.emit(TransactionProviderEvent.Update, { id, transaction });
     } catch (err) {
@@ -83,10 +86,12 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
   private async createTransaction(
     listing: FirestoreOrder,
     offer: FirestoreOrder,
-    match: FirestoreOrderMatch
+    match: FirestoreOrderMatch,
+    matches: FirestoreOrderItemMatch[]
   ): Promise<providers.TransactionRequest> {
     const chainNfts: ChainNFTs[] = [];
-    for (const { listing, offer } of match.matches) {
+
+    for (const { listing, offer } of matches) {
       const address = listing.collectionAddress;
 
       let collectionChainNfts = chainNfts.find((item) => item.collection === address);
@@ -110,7 +115,7 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
       isSellOrder: true,
       signer: listing.signedOrder.signer,
       constraints: [
-        match.matches.length,
+        matches.length,
         offer.signedOrder.constraints[1],
         offer.signedOrder.constraints[2],
         offer.signedOrder.constraints[3],
@@ -159,28 +164,48 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
   }
 
   private async getOrders(match: FirestoreOrderMatch): Promise<{ listing: FirestoreOrder; offer: FirestoreOrder }> {
-    const orders = this.db.collection(
+    const ordersCollectionRef = this.db.collection(
       firestoreConstants.ORDERS_COLL
     ) as FirebaseFirestore.CollectionReference<FirestoreOrder>;
-    const listingRef = orders.doc(match.listingId);
-    const offerRef = orders.doc(match.offerId);
 
-    const [listingSnap, offerSnap] = (await this.db.getAll(
-      listingRef,
-      offerRef
-    )) as FirebaseFirestore.DocumentSnapshot<FirestoreOrder>[];
+    const orderRefs = match.ids.map((id) => ordersCollectionRef.doc(id));
+    const orderSnaps = (await this.db.getAll(...orderRefs)) as FirebaseFirestore.DocumentSnapshot<FirestoreOrder>[];
 
-    const listing = listingSnap.data();
-    const offer = offerSnap.data();
+    const orders = orderSnaps.map((item) => item.data() as FirestoreOrder);
+    const listings = orders.filter((item) => item.isSellOrder === true);
+    const offers = orders.filter((item) => item.isSellOrder === false);
+
+    const listing = listings?.[0];
+    const offer = offers?.[0];
 
     if (!listing || !offer) {
       throw new Error('Order not found');
+    }
+    if (listings.length > 1 || offers.length > 1) {
+      throw new Error(`Multiple orders are not yet supported`);
     }
 
     return { listing, offer };
   }
 
+  private async getMatchItems(matchId: string): Promise<FirestoreOrderItemMatch[]> {
+    const matchRef = this.db.collection(firestoreConstants.ORDER_MATCHES_COLL).doc(matchId);
+
+    const matchItemsRef = matchRef.collection(firestoreConstants.ORDER_MATCH_ITEMS_SUB_COLL);
+
+    const matchItems = await matchItemsRef.get();
+
+    return matchItems.docs.map((item) => item.data() as FirestoreOrderItemMatch);
+  }
+
   private async deleteOrderMatch(id: string) {
-    await this.db.collection(firestoreConstants.ORDER_MATCHES_COLL).doc(id).delete();
+    const batch = this.db.batch();
+    const matchRef = this.db.collection(firestoreConstants.ORDER_MATCHES_COLL).doc(id);
+    const matchItems = await matchRef.collection(firestoreConstants.ORDER_MATCH_ITEMS_SUB_COLL).listDocuments();
+    for (const matchItem of matchItems) {
+      batch.delete(matchItem);
+    }
+    batch.delete(matchRef);
+    await batch.commit();
   }
 }
