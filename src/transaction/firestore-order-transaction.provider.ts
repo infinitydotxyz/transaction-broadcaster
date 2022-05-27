@@ -5,7 +5,6 @@ import {
   ChainNFTs,
   ChainOBOrder,
   FirestoreOrder,
-  FirestoreOrderItemMatch,
   FirestoreOrderMatch,
   FirestoreOrderMatchStatus
 } from '@infinityxyz/lib/types/core';
@@ -74,8 +73,7 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
       }
 
       const { listing, offer } = await this.getOrders(match);
-      const matches = await this.getMatchItems(match.id);
-      const transaction = await this.createTransaction(listing, offer, match, matches);
+      const transaction = await this.createTransaction(listing, offer, match);
 
       this.emit(TransactionProviderEvent.Update, { id, transaction });
     } catch (err) {
@@ -87,35 +85,38 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
     listing: FirestoreOrder,
     offer: FirestoreOrder,
     match: FirestoreOrderMatch,
-    matches: FirestoreOrderItemMatch[]
   ): Promise<providers.TransactionRequest> {
     const chainNfts: ChainNFTs[] = [];
+    let numMatches = 0;
+    const collections = Object.values(match.collections);
+    for (const collection of collections) {
+      let collectionNumMatches = 0;
+      const tokens = Object.values(collection.tokens);
+      const collectionChainNfts: ChainNFTs = {
+        collection: collection.collectionAddress,
+        tokens: []
+      };
+      for (const token of tokens) {
+        collectionChainNfts.tokens.push({
+          tokenId: token.tokenId,
+          numTokens: token.numTokens
+        });
+        collectionNumMatches += 1;
+      }
+      chainNfts.push(collectionChainNfts);
 
-    for (const { listing, offer } of matches) {
-      const address = listing.collectionAddress;
-
-      let collectionChainNfts = chainNfts.find((item) => item.collection === address);
-      if (!collectionChainNfts) {
-        collectionChainNfts = {
-          collection: address,
-          tokens: []
-        };
-        chainNfts.push(collectionChainNfts);
+      if(collectionNumMatches === 0) {
+        collectionNumMatches += 1;
       }
 
-      const tokenId = listing.tokenId || offer.tokenId;
-      const quantity = listing.numTokens ?? offer.numTokens;
-
-      collectionChainNfts.tokens.push({
-        tokenId: tokenId,
-        numTokens: quantity
-      });
+      numMatches += collectionNumMatches;
     }
+
     const constructed: ChainOBOrder = {
       isSellOrder: true,
       signer: listing.signedOrder.signer,
       constraints: [
-        matches.length,
+        numMatches,
         offer.signedOrder.constraints[1],
         offer.signedOrder.constraints[2],
         offer.signedOrder.constraints[3],
@@ -188,24 +189,8 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
     return { listing, offer };
   }
 
-  private async getMatchItems(matchId: string): Promise<FirestoreOrderItemMatch[]> {
-    const matchRef = this.db.collection(firestoreConstants.ORDER_MATCHES_COLL).doc(matchId);
-
-    const matchItemsRef = matchRef.collection(firestoreConstants.ORDER_MATCH_ITEMS_SUB_COLL);
-
-    const matchItems = await matchItemsRef.get();
-
-    return matchItems.docs.map((item) => item.data() as FirestoreOrderItemMatch);
-  }
-
   private async deleteOrderMatch(id: string) {
-    const batch = this.db.batch();
     const matchRef = this.db.collection(firestoreConstants.ORDER_MATCHES_COLL).doc(id);
-    const matchItems = await matchRef.collection(firestoreConstants.ORDER_MATCH_ITEMS_SUB_COLL).listDocuments();
-    for (const matchItem of matchItems) {
-      batch.delete(matchItem);
-    }
-    batch.delete(matchRef);
-    await batch.commit();
+    await matchRef.delete();
   }
 }
