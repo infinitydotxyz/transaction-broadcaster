@@ -60,7 +60,7 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
     try {
       await this.deleteOrderMatch(id);
       // TODO should we mark the order as invalid that it's been fulfilled?
-      // TODO how do we know that this has been completed and it wasn't just skipped??
+      // TODO how do we know that this has been completed and it wasn't just skipped?
     } catch (err) {
       console.error(err);
     }

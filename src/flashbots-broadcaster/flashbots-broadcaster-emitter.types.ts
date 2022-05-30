@@ -48,6 +48,14 @@ export interface SubmittingBundleEvent {
   transactions: { id: string; tx: providers.TransactionRequest }[];
 }
 
+export interface TokenTransfer {
+  address: string;
+  from: string;
+  to: string;
+  tokenId: string;
+  amount: number;
+}
+
 export interface SuccessfulBundleSubmission {
   transactions: {
     receipt: providers.TransactionReceipt;
@@ -55,6 +63,8 @@ export interface SuccessfulBundleSubmission {
     tx: providers.TransactionRequest;
     successful: boolean;
   }[];
+
+  transfers: TokenTransfer[];
 
   blockNumber: number;
 

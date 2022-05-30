@@ -1,3 +1,5 @@
+import { ethers } from 'ethers';
+
 export const infinityExchangeAbi = [
   {
     inputs: [
@@ -491,4 +493,4 @@ export const infinityExchangeAbi = [
     stateMutability: 'view',
     type: 'function'
   }
-];
+] as unknown as ethers.utils.Fragment[];

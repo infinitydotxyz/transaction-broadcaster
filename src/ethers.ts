@@ -1,6 +1,10 @@
 import { ChainId } from '@infinityxyz/lib/types/core/ChainId';
-import { providers } from 'ethers';
-import { getEnvVariable } from './constants';
+import ethers, { providers } from 'ethers';
+import {
+  getEnvVariable,
+  SupportedTokenStandard,
+  tokenStandardByTransferTopic,
+} from './constants';
 
 const providersByChainId: Map<ChainId, providers.BaseProvider> = new Map();
 
@@ -32,4 +36,25 @@ export function getProvider(chainId: ChainId): providers.BaseProvider {
     providersByChainId.set(chainId, provider);
   }
   return provider;
+}
+
+export function decodeTransfer(log: providers.Log) {
+  const topics = log.topics;
+  const data = log.data;
+  const topic = topics[0];
+  const tokenStandard = tokenStandardByTransferTopic[topic];
+  switch (tokenStandard) {
+    case SupportedTokenStandard.ERC721: {
+      const  [from, to, tokenId] = ethers.utils.defaultAbiCoder.decode(['address', 'address', 'uint256'], data);
+      return [{
+        address: log.address.toLowerCase(),
+        from: from.toLowerCase(),
+        to: to.toLowerCase(),
+        tokenId,
+        amount: 1
+      }];
+    }
+    default: 
+      return [];
+  }
 }

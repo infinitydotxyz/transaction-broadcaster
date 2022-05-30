@@ -21,6 +21,7 @@ import {
   FlashbotsBroadcasterInternalOptions,
   FlashbotsBroadcasterOptions
 } from './flashbots-broadcaster-options.types';
+import { decodeTransfer } from '../ethers';
 
 export class FlashbotsBroadcaster {
   private authSigner: Wallet;
@@ -202,7 +203,7 @@ export class FlashbotsBroadcaster {
     switch (bundleResolution) {
       case FlashbotsBundleResolution.BundleIncluded: {
         const receipts = await bundleResponse.receipts();
-        const bundle = receipts.map((receipt, i) => {
+        const bundleTransactions = receipts.map((receipt, i) => {
           const index = receipt?.transactionIndex ?? i;
           const transaction = transactions[index];
           return {
@@ -212,15 +213,19 @@ export class FlashbotsBroadcaster {
             successful: receipt?.status === 1
           };
         });
-        const totalGasUsed = bundle.reduce((acc, curr) => {
+        const totalGasUsed = bundleTransactions.reduce((acc, curr) => {
           return acc.add(curr.receipt.gasUsed);
         }, BigNumber.from(0));
 
+        const transfers = bundleTransactions.flatMap(({ receipt }) => receipt.logs).flatMap((log) => decodeTransfer(log));
+
         const successfulBundleSubmission: SuccessfulBundleSubmission = {
-          transactions: bundle,
+          transactions: bundleTransactions,
           blockNumber: targetBlockNumber,
-          totalGasUsed
+          totalGasUsed,
+          transfers
         };
+
         this.emit(FlashbotsBroadcasterEvent.BundleResult, successfulBundleSubmission);
         break;
       }
