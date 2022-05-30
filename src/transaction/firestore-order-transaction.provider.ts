@@ -13,6 +13,7 @@ import { Contract, providers } from 'ethers';
 import { infinityExchangeAbi } from '../abi/infinity-exchange.abi';
 import { getProvider } from '../ethers';
 import { getExchangeAddress } from '@infinityxyz/lib/utils/orders';
+import { TokenTransfer } from '../flashbots-broadcaster';
 
 export class FirestoreOrderTransactionProvider extends TransactionProvider {
   constructor(private db: FirebaseFirestore.Firestore) {

@@ -5,5 +5,5 @@ export interface TxPool<T> {
 
   delete(id: string): void;
 
-  getTransactions(options: { maxGasFeeGwei: number }): Promise<{ id: string; tx: TransactionRequest }[]>;
+  getTransactions(options: { maxGasFeeGwei: number }): Promise<TransactionRequest[]>;
 }
