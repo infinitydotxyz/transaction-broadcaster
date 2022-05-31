@@ -23,3 +23,7 @@ export interface MatchOrdersBundle extends BaseBundleItem {
 
 export type BundleItem = MatchOrdersBundle;
 export type MatchOrdersEncoder = (args: BundleItem[]) => Promise<TransactionRequest[]>;
+
+export type BundleEncoder = {
+  [BundleType.MatchOrders]: MatchOrdersEncoder
+};

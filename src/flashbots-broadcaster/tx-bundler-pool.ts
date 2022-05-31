@@ -1,5 +1,5 @@
 import { TransactionRequest } from '@ethersproject/abstract-provider';
-import { BundleItem, BundleType, MatchOrdersEncoder } from './bundle.types';
+import { BundleEncoder, BundleItem, BundleType } from './bundle.types';
 import { TokenTransfer } from './flashbots-broadcaster-emitter.types';
 import { TxPool } from './tx-pool.interface';
 
@@ -10,7 +10,7 @@ export class TxBundlerPool implements TxPool<BundleItem> {
   private transferIdToBundleId = new Map<string, string>();
   private idToBundleType: Map<string, BundleType>;
 
-  constructor(private encode: Record<BundleType, MatchOrdersEncoder>) {
+  constructor(private encode: Record<BundleType, BundleEncoder[BundleType]>) {
     this.bundlePool = new Map();
     this.idToBundleType = new Map();
   }
