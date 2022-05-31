@@ -1,10 +1,13 @@
 import { ChainId } from '@infinityxyz/lib/types/core';
 import { getBroadcasters } from './broadcasters.config';
+import { WEBHOOK_URL } from './constants';
+import { relayErrorToEmbed } from './discord/relay-error-to-embed';
+import { sendWebhook } from './discord/webhook';
 import { getDb } from './firestore';
-import { FlashbotsBroadcasterEvent, FlashbotsBroadcaster } from './flashbots-broadcaster';
+import { FlashbotsBroadcasterEvent, FlashbotsBroadcaster, RelayErrorCode } from './flashbots-broadcaster';
 import { BundleItem } from './flashbots-broadcaster/bundle.types';
 import { FirestoreOrderTransactionProvider } from './transaction/firestore-order-transaction.provider';
-import {  TransactionProviderEvent } from './transaction/transaction.provider.interface';
+import { TransactionProviderEvent } from './transaction/transaction.provider.interface';
 
 async function main() {
   const db = getDb();
@@ -40,14 +43,21 @@ async function main() {
 
 void main();
 
-
-function registerBroadcasterListeners(broadcaster: FlashbotsBroadcaster<BundleItem>, firestoreProvider: FirestoreOrderTransactionProvider) {
+function registerBroadcasterListeners(
+  broadcaster: FlashbotsBroadcaster<BundleItem>,
+  firestoreProvider: FirestoreOrderTransactionProvider
+) {
   broadcaster.on(FlashbotsBroadcasterEvent.Started, console.log);
   broadcaster.on(FlashbotsBroadcasterEvent.Stopping, console.log);
   broadcaster.on(FlashbotsBroadcasterEvent.Stopped, console.log);
   broadcaster.on(FlashbotsBroadcasterEvent.Block, console.log);
   broadcaster.on(FlashbotsBroadcasterEvent.SubmittingBundle, console.log);
-  broadcaster.on(FlashbotsBroadcasterEvent.RelayError, console.error);
+  broadcaster.on(FlashbotsBroadcasterEvent.RelayError, (event) => {
+    if (WEBHOOK_URL) {
+      const embed = relayErrorToEmbed(event, broadcaster.chainId);
+      sendWebhook(WEBHOOK_URL, embed).catch(console.error);
+    }
+  });
 
   broadcaster.on(FlashbotsBroadcasterEvent.Simulated, (event) => {
     try {
@@ -70,7 +80,7 @@ function registerBroadcasterListeners(broadcaster: FlashbotsBroadcaster<BundleIt
         const bundleItems = event.transfers
           .map((transfer) => broadcaster.getBundleItemFromTransfer(transfer))
           .filter((bundleItem) => !!bundleItem) as BundleItem[];
-        // TODO how do we handle bundleItems that were skipped? 
+        // TODO how do we handle bundleItems that were skipped?
         // TODO call validate method on the bundleItem to see if it's valid before submission and delete if not valid
         const ids = [...new Set(bundleItems.map((item) => item.id))];
         await Promise.all(ids.map((id) => firestoreProvider.transactionCompleted(id)));

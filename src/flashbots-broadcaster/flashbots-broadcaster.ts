@@ -15,7 +15,8 @@ import {
   StartedEvent,
   SubmittingBundleEvent,
   SuccessfulBundleSubmission,
-  TokenTransfer
+  TokenTransfer,
+  RevertReason
 } from './flashbots-broadcaster-emitter.types';
 import {
   FlashbotsBroadcasterSettings,
@@ -23,8 +24,10 @@ import {
   FlashbotsBroadcasterOptions
 } from './flashbots-broadcaster-options.types';
 import { decodeTransfer } from '../ethers';
+import { ChainId } from '@infinityxyz/lib/types/core';
 
 export class FlashbotsBroadcaster<T extends { id: string }> {
+  public readonly chainId: ChainId;
   private authSigner: Wallet;
   private signer: Wallet;
   private provider: providers.BaseProvider;
@@ -74,6 +77,7 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
     this.emitter = new EventEmitter();
     this.mutex = false;
     this.txPool = options.txPool;
+    this.chainId = `${this.network.chainId}` as ChainId;
   }
 
   /**
@@ -305,12 +309,15 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
 
     const simulatedGasPrice = gasPrice;
     const successful: providers.TransactionRequest[] = [];
-    const reverted: providers.TransactionRequest[] = [];
+    const reverted: { tx: providers.TransactionRequest, reason: string }[] = [];
     for (let index = 0; index < simulationResult.results.length; index += 1) {
       const txSim = simulationResult.results[index];
       const tx = transactions[index];
       if ('error' in txSim) {
-        reverted.push(tx);
+        const insufficientAllowance = txSim.revert.includes('insufficient allowance');
+        const reason = insufficientAllowance ? RevertReason.InsufficientAllowance : txSim.revert;
+        console.log(`\nTransaction failed: ${reason}`)
+        reverted.push({ tx, reason });
       } else {
         successful.push(tx);
       }

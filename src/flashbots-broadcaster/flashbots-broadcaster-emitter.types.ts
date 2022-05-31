@@ -19,6 +19,10 @@ export enum FlashbotsBroadcasterEvent {
   RelayError = 'relay-error'
 }
 
+export enum RelayErrorCode {
+  InsufficientFunds = -32000
+}
+
 export interface StartedEvent {
   settings: FlashbotsBroadcasterSettings;
 
@@ -34,9 +38,13 @@ export interface StoppingEvent {}
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
 export interface StoppedEvent {}
 
+export enum RevertReason {
+  InsufficientAllowance = 'insufficient-allowance',
+}
+
 export interface SimulatedEvent {
   successfulTransactions: providers.TransactionRequest[];
-  revertedTransactions: providers.TransactionRequest[];
+  revertedTransactions: { tx: providers.TransactionRequest, reason: RevertReason | string }[]
   gasPrice: BigNumber;
   totalGasUsed: number;
 }
@@ -88,7 +96,7 @@ export interface FailedBundleSubmission {
 export type BundleSubmissionResultEvent = SuccessfulBundleSubmission | FailedBundleSubmission;
 
 export interface RelayErrorEvent {
-  code: number;
+  code: RelayErrorCode | number;
   message: string;
 }
 

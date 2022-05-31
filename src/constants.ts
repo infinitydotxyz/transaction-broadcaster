@@ -18,6 +18,7 @@ export function getEnvVariable(name: string, required: boolean, defaultValue?: s
   }
 }
 
+export const WEBHOOK_URL = getEnvVariable('WEBHOOK_URL', false);
 export const AUTH_SIGNER_MAINNET = getEnvVariable('AUTH_SIGNER_PRIVATE_KEY_MAINNET', true);
 export const SIGNER_MAINNET = getEnvVariable('SIGNER_PRIVATE_KEY_MAINNET', true);
 export const AUTH_SIGNER_GOERLI = getEnvVariable('AUTH_SIGNER_PRIVATE_KEY_GOERLI', true);
