@@ -1,5 +1,6 @@
 import { FlashbotsBundleProvider } from '@flashbots/ethers-provider-bundle';
 import { providers, Wallet } from 'ethers/lib/ethers';
+import { TxPool } from './tx-pool.interface';
 
 export interface FlashbotsBroadcasterOptions {
   /**
@@ -59,4 +60,6 @@ export interface FlashbotsBroadcasterInternalOptions extends FlashbotsBroadcaste
   signer: Wallet;
 
   network: providers.Network;
+
+  txPool: TxPool;
 }

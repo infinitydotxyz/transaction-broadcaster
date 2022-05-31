@@ -1,28 +1,9 @@
 import { TransactionRequest } from '@ethersproject/abstract-provider';
-import { ChainOBOrder } from '@infinityxyz/lib/types/core';
+import { BundleItem, BundleType, MatchOrdersEncoder } from './bundle.types';
 import { TokenTransfer } from './flashbots-broadcaster-emitter.types';
 import { TxPool } from './tx-pool.interface';
 
-export enum BundleType {
-  MatchOrders = 'matchOrders'
-}
 
-interface BaseBundleItem {
-  id: string;
-  bundleType: BundleType;
-  maxGasPriceGwei?: number;
-}
-
-interface MatchOrdersBundle extends BaseBundleItem {
-  bundleType: BundleType.MatchOrders;
-  exchangeAddress: string;
-  sell: ChainOBOrder;
-  buy: ChainOBOrder;
-  constructed: ChainOBOrder;
-}
-
-type BundleItem = MatchOrdersBundle;
-type MatchOrdersEncoder = (args: BundleItem[]) => Promise<TransactionRequest[]>;
 
 export class TxBundlerPool implements TxPool<BundleItem> {
   private bundlePool: Map<BundleType, Map<string, BundleItem>>;
@@ -106,7 +87,7 @@ export class TxBundlerPool implements TxPool<BundleItem> {
     return txRequests;
   }
 
-  getTransferIdsFromBundle(bundleItem: BundleItem): string[] {
+  private getTransferIdsFromBundle(bundleItem: BundleItem): string[] {
     const ids = new Set<string>();
     for(const nft of bundleItem.constructed.nfts) {
       const collection = nft.collection;
@@ -129,10 +110,11 @@ export class TxBundlerPool implements TxPool<BundleItem> {
     return Array.from(ids);
   }
 
-  getTransferIdFromTransfer(transfer: TokenTransfer): string {
+  private getTransferIdFromTransfer(transfer: TokenTransfer): string {
     const collection = transfer.address;
     const tokenId = transfer.tokenId;
     const amount = transfer.amount;
-    return `${collection}:${tokenId}:${amount}:${transfer.from}:${transfer.to}`;
+    const parts = [collection, tokenId, amount, transfer.from, transfer.to];
+    return parts.join(':');
   }
 }

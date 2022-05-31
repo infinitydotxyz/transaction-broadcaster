@@ -3,6 +3,8 @@ import { AUTH_SIGNER_MAINNET, SIGNER_MAINNET, AUTH_SIGNER_GOERLI, SIGNER_GOERLI 
 import { getProvider } from './ethers';
 import { getDb } from './firestore';
 import { FlashbotsBroadcasterEvent, FlashbotsBroadcasterOptions, FlashbotsBroadcaster } from './flashbots-broadcaster';
+import { BundleItem } from './flashbots-broadcaster/bundle.types';
+import { TxBundlerPool } from './flashbots-broadcaster/tx-bundler-pool';
 import { FirestoreOrderTransactionProvider } from './transaction/firestore-order-transaction.provider';
 import { TransactionProviderEvent } from './transaction/transaction.provider.interface';
 
@@ -43,8 +45,10 @@ const flashbotsOptionsGoerli: FlashbotsBroadcasterOptions = {
 
 // TODO add support for sending multiple order matches in a single transaction
 async function main() {
-  const mainnetBroadcaster = await FlashbotsBroadcaster.create(flashbotsOptionsMainnet);
-  const goerliBroadcaster = await FlashbotsBroadcaster.create(flashbotsOptionsGoerli);
+  const mainnetTxPool = new TxBundlerPool();
+  const goerliTxPool = new TxBundlerPool();
+  const mainnetBroadcaster = await FlashbotsBroadcaster.create(mainnetTxPool, flashbotsOptionsMainnet);
+  const goerliBroadcaster = await FlashbotsBroadcaster.create(goerliTxPool, flashbotsOptionsGoerli);
 
   const chainIdBroadcasters: Record<ChainId.Mainnet | ChainId.Goerli, FlashbotsBroadcaster> = {
     [ChainId.Mainnet]: mainnetBroadcaster,
@@ -56,29 +60,37 @@ async function main() {
     broadcaster.on(FlashbotsBroadcasterEvent.Stopping, console.log);
     broadcaster.on(FlashbotsBroadcasterEvent.Stopped, console.log);
     broadcaster.on(FlashbotsBroadcasterEvent.Block, console.log);
-    broadcaster.on(FlashbotsBroadcasterEvent.Simulated, async (event) => {
+    broadcaster.on(FlashbotsBroadcasterEvent.SubmittingBundle, console.log);
+    broadcaster.on(FlashbotsBroadcasterEvent.RelayError, console.error);
+
+    broadcaster.on(FlashbotsBroadcasterEvent.Simulated, (event) => {
       try {
         console.log(`Simulated`, JSON.stringify(event, null, 2));
-        await Promise.all(event.revertedTransactions.map((tx) => firestoreProvider.transactionReverted(tx.id)));
+
+        // TODO how do we map reverted transactions back to the order?
+        // why would a tx get reverted? 
+        // wasn't formed correctly => assume this isn't the case 
+        // insufficient gas price
+        // invalid balance of tokens in owners of nfts/eth
+        // await Promise.all(event.revertedTransactions.map((tx) => firestoreProvider.transactionReverted(tx.id)));
       } catch (err) {
         console.log(err);
       }
     });
-    broadcaster.on(FlashbotsBroadcasterEvent.SubmittingBundle, console.log);
+
     broadcaster.on(FlashbotsBroadcasterEvent.BundleResult, async (event) => {
       if ('reason' in event) {
         console.error(event.reason);
       } else {
         try {
-          console.log(`Result`);
-          console.log(JSON.stringify(event, null, 2));
-          await Promise.all(event.transactions.map((tx) => firestoreProvider.transactionCompleted(tx.id)));
+          const bundleItems = event.transfers.map((item) => broadcaster.getBundleItemByTransfer(item)).filter((item) => !!item) as { id: string; bundleItem: BundleItem }[];
+          const ids = [...new Set(bundleItems.map((item) => item.id))];
+          await Promise.all(ids.map((id) => firestoreProvider.transactionCompleted(id)));
         } catch (err) {
           console.log(err);
         }
       }
     });
-    broadcaster.on(FlashbotsBroadcasterEvent.RelayError, console.error);
   }
 
   firestoreProvider.on(TransactionProviderEvent.Update, (event) => {

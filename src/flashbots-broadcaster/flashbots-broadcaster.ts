@@ -1,7 +1,7 @@
 import { FlashbotsBundleProvider, FlashbotsBundleResolution } from '@flashbots/ethers-provider-bundle';
 import { BigNumber, providers, Wallet } from 'ethers';
 import * as EventEmitter from 'events';
-import { TxPool } from './tx-pool';
+import { TxPool } from './tx-pool.interface';
 import { getFeesAtTarget, getFlashbotsEndpoint, gweiToWei } from '../utils';
 import {
   BlockEvent,
@@ -14,7 +14,8 @@ import {
   SimulatedEvent,
   StartedEvent,
   SubmittingBundleEvent,
-  SuccessfulBundleSubmission
+  SuccessfulBundleSubmission,
+  TokenTransfer
 } from './flashbots-broadcaster-emitter.types';
 import {
   FlashbotsBroadcasterSettings,
@@ -22,20 +23,21 @@ import {
   FlashbotsBroadcasterOptions
 } from './flashbots-broadcaster-options.types';
 import { decodeTransfer } from '../ethers';
+import { BundleItem } from './bundle.types';
 
 export class FlashbotsBroadcaster {
   private authSigner: Wallet;
   private signer: Wallet;
   private provider: providers.BaseProvider;
   private flashbotsProvider: FlashbotsBundleProvider;
-  private txPool: TxPool;
+  private txPool: TxPool<providers.TransactionRequest>;
   private mutex: boolean;
   private readonly network: providers.Network;
   private readonly settings: FlashbotsBroadcasterSettings;
   private shutdown?: () => Promise<void>;
   private emitter: EventEmitter;
 
-  static async create(options: FlashbotsBroadcasterOptions) {
+  static async create(txPool: TxPool<providers.TransactionRequest>, options: FlashbotsBroadcasterOptions) {
     const authSigner = new Wallet(options.authSigner.privateKey, options.provider);
     const signer = new Wallet(options.transactionSigner.privateKey, options.provider);
     const network = await options.provider.getNetwork();
@@ -50,7 +52,8 @@ export class FlashbotsBroadcaster {
       network,
       allowReverts: options.allowReverts ?? false,
       filterSimulationReverts: options.filterSimulationReverts ?? true,
-      priorityFee: options.priorityFee ?? 3.5
+      priorityFee: options.priorityFee ?? 3.5,
+      txPool
     });
   }
 
@@ -69,9 +72,9 @@ export class FlashbotsBroadcaster {
       priorityFee: options.priorityFee
     };
     this.network = options.network;
-    this.txPool = new TxPool();
     this.emitter = new EventEmitter();
     this.mutex = false;
+    this.txPool = options.txPool;
   }
 
   /**
@@ -107,6 +110,10 @@ export class FlashbotsBroadcaster {
 
   add(id: string, tx: providers.TransactionRequest) {
     this.txPool.add(id, tx);
+  }
+
+  getBundleItemByTransfer(transfer: TokenTransfer): { id: string; bundleItem: BundleItem } | undefined {
+    return this.txPool.getBundleItemByTransfer(transfer);
   }
 
   remove(id: string) {
@@ -155,7 +162,7 @@ export class FlashbotsBroadcaster {
 
   private async execute(currentBlock: { blockNumber: number; timestamp: number; baseFee: BigNumber }) {
     // eslint-disable-next-line prefer-const
-    let { transactions, targetBlockNumber, minTimestamp, maxTimestamp } = this.getTransactions(currentBlock);
+    let { transactions, targetBlockNumber, minTimestamp, maxTimestamp } = await this.getTransactions(currentBlock);
 
     if (transactions.length === 0) {
       return;
@@ -217,7 +224,9 @@ export class FlashbotsBroadcaster {
           return acc.add(curr.receipt.gasUsed);
         }, BigNumber.from(0));
 
-        const transfers = bundleTransactions.flatMap(({ receipt }) => receipt.logs).flatMap((log) => decodeTransfer(log));
+        const transfers = bundleTransactions
+          .flatMap(({ receipt }) => receipt.logs)
+          .flatMap((log) => decodeTransfer(log));
 
         const successfulBundleSubmission: SuccessfulBundleSubmission = {
           transactions: bundleTransactions,
@@ -241,13 +250,13 @@ export class FlashbotsBroadcaster {
     }
   }
 
-  private getTransactions(currentBlock: { timestamp: number; blockNumber: number; baseFee: BigNumber }) {
+  private async getTransactions(currentBlock: { timestamp: number; blockNumber: number; baseFee: BigNumber }) {
     const minTimestamp = currentBlock.timestamp;
     const maxTimestamp = minTimestamp + 120;
     const targetBlockNumber = currentBlock.blockNumber + this.settings.blocksInFuture;
     const { maxBaseFeeGwei } = getFeesAtTarget(currentBlock.baseFee, this.settings.blocksInFuture);
     const gasPrice = maxBaseFeeGwei + this.settings.priorityFee;
-    const transactions = this.txPool.getTransactions({ minMaxGasFeeGwei: gasPrice }).map(({ id, tx }) => {
+    const transactions = (await this.txPool.getTransactions({ maxGasFeeGwei: gasPrice })).map((tx) => {
       const txRequest: providers.TransactionRequest = {
         gasLimit: 500_000, // required so that eth_estimateGas doesn't throw an error for invalid transactions
         ...tx,
@@ -257,7 +266,6 @@ export class FlashbotsBroadcaster {
         maxFeePerGas: gweiToWei(gasPrice)
       };
       return {
-        id,
         tx: txRequest
       };
     });
