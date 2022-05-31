@@ -35,8 +35,8 @@ export interface StoppingEvent {}
 export interface StoppedEvent {}
 
 export interface SimulatedEvent {
-  successfulTransactions: { id: string; tx: providers.TransactionRequest }[];
-  revertedTransactions: { id: string; tx: providers.TransactionRequest }[];
+  successfulTransactions: providers.TransactionRequest[];
+  revertedTransactions: providers.TransactionRequest[];
   gasPrice: BigNumber;
   totalGasUsed: number;
 }
@@ -45,7 +45,7 @@ export interface SubmittingBundleEvent {
   blockNumber: number;
   minTimestamp: number;
   maxTimestamp: number;
-  transactions: { id: string; tx: providers.TransactionRequest }[];
+  transactions: providers.TransactionRequest[];
 }
 
 export interface TokenTransfer {
@@ -59,7 +59,6 @@ export interface TokenTransfer {
 export interface SuccessfulBundleSubmission {
   transactions: {
     receipt: providers.TransactionReceipt;
-    id: string;
     tx: providers.TransactionRequest;
     successful: boolean;
   }[];

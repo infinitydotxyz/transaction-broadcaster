@@ -1,4 +1,5 @@
 import { TransactionRequest } from '@ethersproject/abstract-provider';
+import { ChainId } from '@infinityxyz/lib/types/core';
 import { ChainOBOrder } from '@infinityxyz/lib/types/core/OBOrder';
 
 export enum BundleType {
@@ -9,6 +10,7 @@ export interface BaseBundleItem {
   id: string;
   bundleType: BundleType;
   maxGasPriceGwei?: number;
+  chainId: ChainId;
 }
 
 export interface MatchOrdersBundle extends BaseBundleItem {

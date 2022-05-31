@@ -1,10 +1,12 @@
 import { ChainId } from '@infinityxyz/lib/types/core';
+import { providers } from 'ethers/lib/ethers';
 import { AUTH_SIGNER_MAINNET, SIGNER_MAINNET, AUTH_SIGNER_GOERLI, SIGNER_GOERLI } from './constants';
 import { getProvider } from './ethers';
 import { getDb } from './firestore';
 import { FlashbotsBroadcasterEvent, FlashbotsBroadcasterOptions, FlashbotsBroadcaster } from './flashbots-broadcaster';
-import { BundleItem } from './flashbots-broadcaster/bundle.types';
+import { BundleItem, BundleType } from './flashbots-broadcaster/bundle.types';
 import { TxBundlerPool } from './flashbots-broadcaster/tx-bundler-pool';
+import { InfinityExchange } from './infinity-exchange';
 import { FirestoreOrderTransactionProvider } from './transaction/firestore-order-transaction.provider';
 import { TransactionProviderEvent } from './transaction/transaction.provider.interface';
 
@@ -45,12 +47,20 @@ const flashbotsOptionsGoerli: FlashbotsBroadcasterOptions = {
 
 // TODO add support for sending multiple order matches in a single transaction
 async function main() {
-  const mainnetTxPool = new TxBundlerPool();
-  const goerliTxPool = new TxBundlerPool();
+  const providers: Record<ChainId, providers.JsonRpcProvider> = {
+    [ChainId.Mainnet]: getProvider(ChainId.Mainnet),
+    [ChainId.Goerli]: getProvider(ChainId.Goerli),
+    [ChainId.Polygon]: undefined as any // not supported
+  };
+  const infinityExchange = new InfinityExchange(providers);
+  const mainnetEncoder = infinityExchange.getMatchOrdersEncoder(ChainId.Mainnet).bind(infinityExchange);
+  const goerliEncoder = infinityExchange.getMatchOrdersEncoder(ChainId.Goerli).bind(infinityExchange);
+  const mainnetTxPool = new TxBundlerPool({ [BundleType.MatchOrders]: mainnetEncoder });
+  const goerliTxPool = new TxBundlerPool({ [BundleType.MatchOrders]: goerliEncoder });
   const mainnetBroadcaster = await FlashbotsBroadcaster.create(mainnetTxPool, flashbotsOptionsMainnet);
   const goerliBroadcaster = await FlashbotsBroadcaster.create(goerliTxPool, flashbotsOptionsGoerli);
 
-  const chainIdBroadcasters: Record<ChainId.Mainnet | ChainId.Goerli, FlashbotsBroadcaster> = {
+  const chainIdBroadcasters: Record<ChainId.Mainnet | ChainId.Goerli, FlashbotsBroadcaster<BundleItem>> = {
     [ChainId.Mainnet]: mainnetBroadcaster,
     [ChainId.Goerli]: goerliBroadcaster
   };
@@ -68,8 +78,8 @@ async function main() {
         console.log(`Simulated`, JSON.stringify(event, null, 2));
 
         // TODO how do we map reverted transactions back to the order?
-        // why would a tx get reverted? 
-        // wasn't formed correctly => assume this isn't the case 
+        // why would a tx get reverted?
+        // wasn't formed correctly => assume this isn't the case
         // insufficient gas price
         // invalid balance of tokens in owners of nfts/eth
         // await Promise.all(event.revertedTransactions.map((tx) => firestoreProvider.transactionReverted(tx.id)));
@@ -83,7 +93,9 @@ async function main() {
         console.error(event.reason);
       } else {
         try {
-          const bundleItems = event.transfers.map((item) => broadcaster.getBundleItemByTransfer(item)).filter((item) => !!item) as { id: string; bundleItem: BundleItem }[];
+          const bundleItems = event.transfers
+            .map((item) => broadcaster.getBundleItemByTransfer(item))
+            .filter((item) => !!item) as { id: string; item: BundleItem }[];
           const ids = [...new Set(bundleItems.map((item) => item.id))];
           await Promise.all(ids.map((id) => firestoreProvider.transactionCompleted(id)));
         } catch (err) {
@@ -94,10 +106,10 @@ async function main() {
   }
 
   firestoreProvider.on(TransactionProviderEvent.Update, (event) => {
-    const chainId = `${event.transaction.chainId}` as ChainId;
+    const chainId = event.item.chainId;
     const broadcaster = chainIdBroadcasters[chainId as ChainId.Mainnet | ChainId.Goerli];
     if (broadcaster) {
-      broadcaster.add(event.id, event.transaction);
+      broadcaster.add(event.id, event.item);
     } else {
       console.error(`Unsupported chainId: ${chainId}`);
     }

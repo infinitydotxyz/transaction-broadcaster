@@ -46,7 +46,7 @@ export class TxBundlerPool implements TxPool<BundleItem> {
     this.idToBundleType.delete(id);
   }
 
-  getBundleItemByTransfer(transfer: TokenTransfer): { id: string, bundleItem: BundleItem } | undefined {
+  getBundleItemByTransfer(transfer: TokenTransfer): { id: string, item: BundleItem } | undefined {
     const transferId = this.getTransferIdFromTransfer(transfer);
     const bundleId = this.transferIdToBundleId.get(transferId);
     if(!bundleId) {
@@ -68,7 +68,7 @@ export class TxBundlerPool implements TxPool<BundleItem> {
       return undefined;
     }
 
-    return { id: bundleId, bundleItem };
+    return { id: bundleId, item: bundleItem };
   }
 
   async getTransactions(options: { maxGasFeeGwei: number }): Promise<TransactionRequest[]> {

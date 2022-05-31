@@ -1,4 +1,4 @@
-import { providers } from 'ethers/lib/ethers';
+import { BundleItem } from '../flashbots-broadcaster/bundle.types';
 
 export enum TransactionProviderEvent {
   Update = 'transaction-updated',
@@ -8,7 +8,7 @@ export enum TransactionProviderEvent {
 
 export interface UpdateTransactionEvent {
   id: string;
-  transaction: providers.TransactionRequest;
+  item: BundleItem;
 }
 
 export interface RemoveTransactionEvent {

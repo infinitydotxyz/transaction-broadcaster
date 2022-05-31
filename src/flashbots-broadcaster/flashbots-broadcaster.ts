@@ -23,27 +23,26 @@ import {
   FlashbotsBroadcasterOptions
 } from './flashbots-broadcaster-options.types';
 import { decodeTransfer } from '../ethers';
-import { BundleItem } from './bundle.types';
 
-export class FlashbotsBroadcaster {
+export class FlashbotsBroadcaster<T> {
   private authSigner: Wallet;
   private signer: Wallet;
   private provider: providers.BaseProvider;
   private flashbotsProvider: FlashbotsBundleProvider;
-  private txPool: TxPool<providers.TransactionRequest>;
+  private txPool: TxPool<T>;
   private mutex: boolean;
   private readonly network: providers.Network;
   private readonly settings: FlashbotsBroadcasterSettings;
   private shutdown?: () => Promise<void>;
   private emitter: EventEmitter;
 
-  static async create(txPool: TxPool<providers.TransactionRequest>, options: FlashbotsBroadcasterOptions) {
+  static async create<T>(txPool: TxPool<T>, options: FlashbotsBroadcasterOptions) {
     const authSigner = new Wallet(options.authSigner.privateKey, options.provider);
     const signer = new Wallet(options.transactionSigner.privateKey, options.provider);
     const network = await options.provider.getNetwork();
     const connectionUrl = getFlashbotsEndpoint(network);
     const flashbotsProvider = await FlashbotsBundleProvider.create(options.provider, authSigner, connectionUrl);
-    return new FlashbotsBroadcaster({
+    return new FlashbotsBroadcaster<T>({
       authSigner,
       provider: options.provider,
       flashbotsProvider,
@@ -60,7 +59,7 @@ export class FlashbotsBroadcaster {
   /**
    * use the create method to create a new FlashbotsBroadcaster instance
    */
-  private constructor(options: FlashbotsBroadcasterInternalOptions) {
+  private constructor(options: FlashbotsBroadcasterInternalOptions<T>) {
     this.authSigner = options.authSigner;
     this.signer = options.signer;
     this.provider = options.provider;
@@ -108,11 +107,11 @@ export class FlashbotsBroadcaster {
     this.emit(FlashbotsBroadcasterEvent.Stopped, {});
   }
 
-  add(id: string, tx: providers.TransactionRequest) {
-    this.txPool.add(id, tx);
+  add(id: string, item: T) {
+    this.txPool.add(id, item);
   }
 
-  getBundleItemByTransfer(transfer: TokenTransfer): { id: string; bundleItem: BundleItem } | undefined {
+  getBundleItemByTransfer(transfer: TokenTransfer): { id: string; item: T } | undefined {
     return this.txPool.getBundleItemByTransfer(transfer);
   }
 
@@ -215,8 +214,7 @@ export class FlashbotsBroadcaster {
           const transaction = transactions[index];
           return {
             receipt,
-            id: transaction?.id,
-            tx: transaction?.tx,
+            tx: transaction,
             successful: receipt?.status === 1
           };
         });
@@ -265,9 +263,7 @@ export class FlashbotsBroadcaster {
         maxPriorityFeePerGas: gweiToWei(this.settings.priorityFee),
         maxFeePerGas: gweiToWei(gasPrice)
       };
-      return {
-        tx: txRequest
-      };
+      return txRequest;
     });
 
     return {
@@ -278,9 +274,9 @@ export class FlashbotsBroadcaster {
     };
   }
 
-  private async getSignedBundle(transactions: { id: string; tx: providers.TransactionRequest }[]): Promise<string[]> {
+  private async getSignedBundle(transactions: providers.TransactionRequest[]): Promise<string[]> {
     const signedBundle = await this.flashbotsProvider.signBundle(
-      transactions.map(({ tx }) => {
+      transactions.map((tx) => {
         return {
           signer: this.signer,
           transaction: tx
@@ -290,7 +286,7 @@ export class FlashbotsBroadcaster {
     return signedBundle;
   }
 
-  private async simulateBundle(transactions: { id: string; tx: providers.TransactionRequest }[]) {
+  private async simulateBundle(transactions: providers.TransactionRequest[]) {
     const signedBundle = await this.getSignedBundle(transactions);
 
     const simulationResult = await this.flashbotsProvider.simulate(signedBundle, 'latest');
@@ -308,8 +304,8 @@ export class FlashbotsBroadcaster {
     const gasPrice = simulationResult.coinbaseDiff.div(totalGasUsed);
 
     const simulatedGasPrice = gasPrice;
-    const successful: { id: string; tx: providers.TransactionRequest }[] = [];
-    const reverted: { id: string; tx: providers.TransactionRequest }[] = [];
+    const successful: providers.TransactionRequest[] = [];
+    const reverted: providers.TransactionRequest[] = [];
     for (let index = 0; index < simulationResult.results.length; index += 1) {
       const txSim = simulationResult.results[index];
       const tx = transactions[index];

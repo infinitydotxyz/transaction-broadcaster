@@ -6,7 +6,7 @@ import {
   tokenStandardByTransferTopic,
 } from './constants';
 
-const providersByChainId: Map<ChainId, providers.BaseProvider> = new Map();
+const providersByChainId: Map<ChainId, providers.JsonRpcProvider> = new Map();
 
 export function getProviderUrl(chainId: ChainId) {
   let envVariable = '';
@@ -26,7 +26,7 @@ export function getProviderUrl(chainId: ChainId) {
   return providerUrl;
 }
 
-export function getProvider(chainId: ChainId): providers.BaseProvider {
+export function getProvider(chainId: ChainId): providers.JsonRpcProvider {
   let provider = providersByChainId.get(chainId);
 
   if (!provider) {

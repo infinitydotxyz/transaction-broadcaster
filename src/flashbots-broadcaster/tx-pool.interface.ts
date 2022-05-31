@@ -1,5 +1,4 @@
 import { TransactionRequest } from '@ethersproject/abstract-provider';
-import { BundleItem } from './bundle.types';
 import { TokenTransfer } from './flashbots-broadcaster-emitter.types';
 
 export interface TxPool<T> {
@@ -9,5 +8,5 @@ export interface TxPool<T> {
 
   getTransactions(options: { maxGasFeeGwei: number }): Promise<TransactionRequest[]>;
 
-  getBundleItemByTransfer(transfer: TokenTransfer): { id: string, bundleItem: BundleItem } | undefined;
+  getBundleItemByTransfer(transfer: TokenTransfer): { id: string, item: T } | undefined;
 }

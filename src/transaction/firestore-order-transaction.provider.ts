@@ -9,10 +9,8 @@ import {
   FirestoreOrderMatchStatus
 } from '@infinityxyz/lib/types/core';
 import { TransactionProviderEvent } from './transaction.provider.interface';
-import { Contract, providers } from 'ethers';
-import { infinityExchangeAbi } from '../abi/infinity-exchange.abi';
-import { getProvider } from '../ethers';
 import { getExchangeAddress } from '@infinityxyz/lib/utils/orders';
+import { BundleItem, BundleType } from '../flashbots-broadcaster/bundle.types';
 
 export class FirestoreOrderTransactionProvider extends TransactionProvider {
   constructor(private db: FirebaseFirestore.Firestore) {
@@ -73,19 +71,19 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
       }
 
       const { listing, offer } = await this.getOrders(match);
-      const transaction = await this.createTransaction(listing, offer, match);
+      const bundleItem = this.createBundleItem(listing, offer, match);
 
-      this.emit(TransactionProviderEvent.Update, { id, transaction });
+      this.emit(TransactionProviderEvent.Update, { id, item: bundleItem });
     } catch (err) {
       console.error(err);
     }
   }
 
-  private async createTransaction(
+  private createBundleItem(
     listing: FirestoreOrder,
     offer: FirestoreOrder,
     match: FirestoreOrderMatch,
-  ): Promise<providers.TransactionRequest> {
+  ): BundleItem {
     const chainNfts: ChainNFTs[] = [];
     let numMatches = 0;
     const collections = Object.values(match.collections);
@@ -130,34 +128,16 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
       sig: listing.signedOrder.sig
     };
 
-    const provider = getProvider(listing.chainId as ChainId);
-    const exchange = getExchangeAddress(listing.chainId);
-    if (!exchange) {
-      throw new Error(`Invalid chain id. Exchange not supported`);
+    const bundle: BundleItem = {
+      id: listing.id, // TODO is this the id we want?
+      chainId: listing.chainId as ChainId,
+      bundleType: BundleType.MatchOrders,
+      exchangeAddress: getExchangeAddress(listing.chainId),
+      sell: listing.signedOrder,
+      buy: offer.signedOrder,
+      constructed,
     }
-    const contract = new Contract(exchange, infinityExchangeAbi, provider);
-    const sells = [listing.signedOrder];
-    const buys = [offer.signedOrder];
-    const orders = [constructed];
-    const tradingRewards = false;
-    const feeDiscountEnabled = false;
-    const args = [sells, buys, orders, tradingRewards, feeDiscountEnabled]; // TODO remove trading rewards and fee discount enabled
-    const fn = contract.interface.getFunction('matchOrders');
-    const data = contract.interface.encodeFunctionData(fn, args);
-
-    const estimate = await provider.estimateGas({
-      to: exchange,
-      data
-    });
-
-    const gasLimit = estimate.toNumber();
-
-    return {
-      to: exchange,
-      gasLimit: gasLimit,
-      data,
-      chainId: parseInt(listing.chainId)
-    };
+    return bundle;
   }
 
   private handleOrderMatchDelete(id: string): void {
