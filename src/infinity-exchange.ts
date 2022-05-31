@@ -1,5 +1,6 @@
 import { TransactionRequest } from '@ethersproject/abstract-provider';
 import { ChainId, ChainOBOrder } from '@infinityxyz/lib/types/core';
+import { getExchangeAddress } from '@infinityxyz/lib/utils/orders';
 import { Contract, providers } from 'ethers';
 import { infinityExchangeAbi } from './abi/infinity-exchange.abi';
 import { BundleItem } from './flashbots-broadcaster/bundle.types';
@@ -40,7 +41,7 @@ export class InfinityExchange {
         data
       });
   
-      const gasLimit = estimate.toNumber() * 1.2;
+      const gasLimit = Math.floor(estimate.toNumber() * 1.2);
       return [{ // TODO make sure gas limit is < 30_000_000
         to: contract.address,
         gasLimit: gasLimit,
@@ -69,7 +70,7 @@ export class InfinityExchange {
   }
 
   private static getExchangeAddress(chainId: ChainId): string {
-    const exchangeAddress = this.getExchangeAddress(chainId);
+    const exchangeAddress = getExchangeAddress(chainId);
     if (!exchangeAddress) {
       throw new Error(`No exchange address for chainId: ${chainId}`);
     }

@@ -51,8 +51,8 @@ function registerBroadcasterListeners(broadcaster: FlashbotsBroadcaster<BundleIt
 
   broadcaster.on(FlashbotsBroadcasterEvent.Simulated, (event) => {
     try {
+      console.log(`Transaction reverted`);
       console.log(`Simulated`, JSON.stringify(event, null, 2));
-      // TODO how do we map reverted transactions back to the order?
       // why would a tx get reverted?
       // wasn't formed correctly => this shouldn't the case
       // insufficient gas price

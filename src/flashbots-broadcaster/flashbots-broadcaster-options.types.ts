@@ -50,7 +50,7 @@ export type FlashbotsBroadcasterSettings = Required<
   Pick<FlashbotsBroadcasterOptions, 'blocksInFuture' | 'allowReverts' | 'filterSimulationReverts' | 'priorityFee'>
 >;
 
-export interface FlashbotsBroadcasterInternalOptions<T> extends FlashbotsBroadcasterSettings {
+export interface FlashbotsBroadcasterInternalOptions<T extends { id: string }> extends FlashbotsBroadcasterSettings {
   flashbotsProvider: FlashbotsBundleProvider;
 
   provider: providers.BaseProvider;
