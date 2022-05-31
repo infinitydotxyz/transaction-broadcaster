@@ -24,7 +24,7 @@ import {
 } from './flashbots-broadcaster-options.types';
 import { decodeTransfer } from '../ethers';
 
-export class FlashbotsBroadcaster<T> {
+export class FlashbotsBroadcaster<T extends { id: string }> {
   private authSigner: Wallet;
   private signer: Wallet;
   private provider: providers.BaseProvider;
@@ -36,7 +36,7 @@ export class FlashbotsBroadcaster<T> {
   private shutdown?: () => Promise<void>;
   private emitter: EventEmitter;
 
-  static async create<T>(txPool: TxPool<T>, options: FlashbotsBroadcasterOptions) {
+  static async create<T extends { id: string }>(txPool: TxPool<T>, options: FlashbotsBroadcasterOptions) {
     const authSigner = new Wallet(options.authSigner.privateKey, options.provider);
     const signer = new Wallet(options.transactionSigner.privateKey, options.provider);
     const network = await options.provider.getNetwork();
@@ -107,16 +107,16 @@ export class FlashbotsBroadcaster<T> {
     this.emit(FlashbotsBroadcasterEvent.Stopped, {});
   }
 
-  add(id: string, item: T) {
-    this.txPool.add(id, item);
+  add(item: T) {
+    this.txPool.add(item);
   }
 
-  getBundleItemByTransfer(transfer: TokenTransfer): { id: string; item: T } | undefined {
-    return this.txPool.getBundleItemByTransfer(transfer);
+  getBundleItemFromTransfer(transfer: TokenTransfer): T | undefined {
+    return this.txPool.getBundleFromTransfer(transfer);
   }
 
   remove(id: string) {
-    this.txPool.delete(id);
+    this.txPool.remove(id);
   }
 
   on<Event extends FlashbotsBroadcasterEvent>(event: Event, listener: (data: GetEventType[Event]) => void) {

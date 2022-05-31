@@ -1,5 +1,5 @@
 import { ChainId } from '@infinityxyz/lib/types/core';
-import { getBroadcasters } from './config';
+import { getBroadcasters } from './broadcasters.config';
 import { getDb } from './firestore';
 import { FlashbotsBroadcasterEvent, FlashbotsBroadcaster } from './flashbots-broadcaster';
 import { BundleItem } from './flashbots-broadcaster/bundle.types';
@@ -19,7 +19,7 @@ async function main() {
     const chainId = event.item.chainId;
     const broadcaster = chainIdBroadcasters[chainId as ChainId.Mainnet | ChainId.Goerli];
     if (broadcaster) {
-      broadcaster.add(event.id, event.item);
+      broadcaster.add(event.item);
     } else {
       console.error(`Unsupported chainId: ${chainId}`);
     }
@@ -52,12 +52,10 @@ function registerBroadcasterListeners(broadcaster: FlashbotsBroadcaster<BundleIt
   broadcaster.on(FlashbotsBroadcasterEvent.Simulated, (event) => {
     try {
       console.log(`Simulated`, JSON.stringify(event, null, 2));
-
       // TODO how do we map reverted transactions back to the order?
       // why would a tx get reverted?
-      // wasn't formed correctly => assume this isn't the case
+      // wasn't formed correctly => this shouldn't the case
       // insufficient gas price
-      // invalid balance of tokens in owners of nfts/eth
       // await Promise.all(event.revertedTransactions.map((tx) => firestoreProvider.transactionReverted(tx.id)));
     } catch (err) {
       console.log(err);
@@ -70,8 +68,10 @@ function registerBroadcasterListeners(broadcaster: FlashbotsBroadcaster<BundleIt
     } else {
       try {
         const bundleItems = event.transfers
-          .map((item) => broadcaster.getBundleItemByTransfer(item))
-          .filter((item) => !!item) as { id: string; item: BundleItem }[];
+          .map((transfer) => broadcaster.getBundleItemFromTransfer(transfer))
+          .filter((bundleItem) => !!bundleItem) as BundleItem[];
+        // TODO how do we handle bundleItems that were skipped? 
+        // TODO call validate method on the bundleItem to see if it's valid before submission and delete if not valid
         const ids = [...new Set(bundleItems.map((item) => item.id))];
         await Promise.all(ids.map((id) => firestoreProvider.transactionCompleted(id)));
       } catch (err) {

@@ -3,34 +3,40 @@ import { BundleEncoder, BundleItem, BundleType } from './bundle.types';
 import { TokenTransfer } from './flashbots-broadcaster-emitter.types';
 import { TxPool } from './tx-pool.interface';
 
-
+export interface TxBundlerPoolOptions {
+  /**
+   * bundles must be at least this size for a transaction 
+   * to be created
+   */
+  minBundleSize: Record<BundleType, number>;
+}
 
 export class TxBundlerPool implements TxPool<BundleItem> {
   private bundlePool: Map<BundleType, Map<string, BundleItem>>;
   private transferIdToBundleId = new Map<string, string>();
   private idToBundleType: Map<string, BundleType>;
 
-  constructor(private encode: Record<BundleType, BundleEncoder[BundleType]>) {
+  constructor(private encode: Record<BundleType, BundleEncoder[BundleType]>, private options: TxBundlerPoolOptions) {
     this.bundlePool = new Map();
     this.idToBundleType = new Map();
   }
 
-  add(id: string, item: BundleItem): void {
+  add(item: BundleItem): void {
     const bundleType = item.bundleType;
     let bundle = this.bundlePool.get(bundleType);
     if (!bundle) {
       bundle = new Map();
       this.bundlePool.set(bundleType, bundle);
     }
-    bundle.set(id, item);
-    this.idToBundleType.set(id, bundleType);
+    bundle.set(item.id, item);
+    this.idToBundleType.set(item.id, bundleType);
     const transferIds = this.getTransferIdsFromBundle(item);
     for(const transferId of transferIds) {
-      this.transferIdToBundleId.set(transferId, id);
+      this.transferIdToBundleId.set(transferId, item.id);
     }
   }
 
-  delete(id: string): void {
+  remove(id: string): void {
     const bundleType = this.idToBundleType.get(id);
     if (bundleType) {
       const bundle = this.bundlePool.get(bundleType);
@@ -46,7 +52,7 @@ export class TxBundlerPool implements TxPool<BundleItem> {
     this.idToBundleType.delete(id);
   }
 
-  getBundleItemByTransfer(transfer: TokenTransfer): { id: string, item: BundleItem } | undefined {
+  getBundleFromTransfer(transfer: TokenTransfer): BundleItem | undefined {
     const transferId = this.getTransferIdFromTransfer(transfer);
     const bundleId = this.transferIdToBundleId.get(transferId);
     if(!bundleId) {
@@ -68,7 +74,7 @@ export class TxBundlerPool implements TxPool<BundleItem> {
       return undefined;
     }
 
-    return { id: bundleId, item: bundleItem };
+    return bundleItem;
   }
 
   async getTransactions(options: { maxGasFeeGwei: number }): Promise<TransactionRequest[]> {
@@ -78,8 +84,11 @@ export class TxBundlerPool implements TxPool<BundleItem> {
       const bundleItems = Array.from(bundle.values()).filter(
         (item) => item.maxGasPriceGwei === undefined || item.maxGasPriceGwei > options.maxGasFeeGwei
       );
+
+      const bundleSizeValid = bundleItems.length >= this.options.minBundleSize[bundleType];
+
       const encoder = this.encode[bundleType];
-      if (encoder && typeof encoder === 'function') {
+      if (bundleSizeValid && encoder && typeof encoder === 'function') {
         const bundleTxnRequests = await encoder(bundleItems);
         txRequests = [...txRequests, ...bundleTxnRequests];
       }

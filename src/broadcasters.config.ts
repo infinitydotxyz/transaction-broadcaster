@@ -5,10 +5,16 @@ import { getProvider } from './ethers';
 import { BundleEncoder, BundleItem, BundleType } from './flashbots-broadcaster/bundle.types';
 import { FlashbotsBroadcaster } from './flashbots-broadcaster/flashbots-broadcaster';
 import { FlashbotsBroadcasterOptions } from './flashbots-broadcaster/flashbots-broadcaster-options.types';
-import { TxBundlerPool } from './flashbots-broadcaster/tx-bundler-pool';
+import { TxBundlerPool, TxBundlerPoolOptions } from './flashbots-broadcaster/tx-bundler-pool';
 import { InfinityExchange } from './infinity-exchange';
 
 type SupportedChainId = ChainId.Mainnet | ChainId.Goerli;
+
+const txBundlerPoolOptions: TxBundlerPoolOptions = {
+  minBundleSize: {
+    [BundleType.MatchOrders]: 2
+  }
+}
 
 const flashbotsOptions: Pick<
   FlashbotsBroadcasterOptions,
@@ -63,8 +69,8 @@ export const bundleEncoders: Record<SupportedChainId, Record<BundleType, BundleE
 
 
 export async function getBroadcasters() {
-    const mainnetTxPool = new TxBundlerPool(bundleEncoders[ChainId.Mainnet]);
-    const goerliTxPool = new TxBundlerPool(bundleEncoders[ChainId.Goerli]);
+    const mainnetTxPool = new TxBundlerPool(bundleEncoders[ChainId.Mainnet], txBundlerPoolOptions);
+    const goerliTxPool = new TxBundlerPool(bundleEncoders[ChainId.Goerli], txBundlerPoolOptions);
   
     const mainnetBroadcaster = await FlashbotsBroadcaster.create(mainnetTxPool, flashbotsOptionsMainnet);
     const goerliBroadcaster = await FlashbotsBroadcaster.create(goerliTxPool, flashbotsOptionsGoerli);
