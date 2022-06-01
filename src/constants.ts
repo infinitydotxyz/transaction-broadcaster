@@ -40,3 +40,5 @@ export const tokenStandardByTransferTopic: Record<string, SupportedTokenStandard
 };
 
 export const transferTopics = new Set(Object.values(transferTopicByTokenStandard).flatMap(item => item));
+
+export const MAX_GAS_LIMIT = 30_000_000;

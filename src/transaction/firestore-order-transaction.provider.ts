@@ -129,7 +129,7 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
     };
 
     const bundle: BundleItem = {
-      id: listing.id, // TODO is this the id we want?
+      id: `${listing.id}-${offer.id}`,
       chainId: listing.chainId as ChainId,
       bundleType: BundleType.MatchOrders,
       exchangeAddress: getExchangeAddress(listing.chainId),

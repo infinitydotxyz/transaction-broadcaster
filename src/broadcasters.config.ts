@@ -65,7 +65,7 @@ export const bundleEncoders: Record<SupportedChainId, Record<BundleType, BundleE
     [ChainId.Goerli]: {
         [BundleType.MatchOrders]: goerliEncoder,
     }
-} as any; // TODO add
+} as any; // TODO add mainnet
 
 
 export async function getBroadcasters() {

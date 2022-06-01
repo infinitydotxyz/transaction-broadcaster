@@ -3,7 +3,8 @@ import { ChainId, ChainOBOrder } from '@infinityxyz/lib/types/core';
 import { getExchangeAddress } from '@infinityxyz/lib/utils/orders';
 import { Contract, providers } from 'ethers';
 import { infinityExchangeAbi } from './abi/infinity-exchange.abi';
-import { BundleItem } from './flashbots-broadcaster/bundle.types';
+import { MAX_GAS_LIMIT } from './constants';
+import { BundleItem, MatchOrdersBundle } from './flashbots-broadcaster/bundle.types';
 
 export class InfinityExchange {
   private contracts: Map<ChainId, Contract>;
@@ -21,33 +22,65 @@ export class InfinityExchange {
     const encoder = async (bundleItems: BundleItem[]): Promise<TransactionRequest[]> => {
       const tradingRewards = false;
       const feeDiscountEnabled = false;
-      const orders = bundleItems.reduce(
-        (acc: { sells: ChainOBOrder[]; buys: ChainOBOrder[]; constructed: ChainOBOrder[] }, bundleItem) => {
+
+      const buildBundles = async (
+        bundleItems: MatchOrdersBundle[],
+        numBundles: number
+      ): Promise<TransactionRequest[]> => {
+        /**
+         * spread the orders that will cost the most gas into different bundles
+         */
+        const bundleItemsSortedByNumMatches = bundleItems.sort((a, b) => {
+          const numMatchesA = a.constructed.constraints[0] as number;
+          const numMatchesB = b.constructed.constraints[0] as number;
+          return numMatchesB - numMatchesA;
+        });
+        const bundles = bundleItemsSortedByNumMatches.reduce(
+          (
+            acc: { sells: ChainOBOrder[]; buys: ChainOBOrder[]; constructed: ChainOBOrder[] }[],
+            bundleItem,
+            currentIndex
+          ) => {
+            const index = currentIndex % numBundles;
+            const bundle = acc[index] ?? { sells: [], buys: [], constructed: [] };
+            bundle.sells.push(bundleItem.sell);
+            bundle.buys.push(bundleItem.buy);
+            bundle.constructed.push(bundleItem.constructed);
+            acc[index] = bundle;
+            return acc;
+          },
+          []
+        );
+        const transactionRequests = await Promise.all(bundles.map(async (bundle) => {
+          const args = [bundle.sells, bundle.buys, bundle.constructed, tradingRewards, feeDiscountEnabled]; // TODO remove trading rewards and fee discount enabled
+          const fn = contract.interface.getFunction('matchOrders');
+          const data = contract.interface.encodeFunctionData(fn, args);
+          const estimate = await provider.estimateGas({
+            to: contract.address,
+            data
+          });
+          const gasLimit = Math.floor(estimate.toNumber() * 1.2);
           return {
-            sells: [...acc.sells, bundleItem.sell],
-            buys: [...acc.buys, bundleItem.buy],
-            constructed: [...acc.constructed, bundleItem.constructed]
+            to: contract.address,
+            gasLimit: gasLimit,
+            data,
+            chainId: parseInt(chainId)
           };
-        },
-        { sells: [], buys: [], constructed: [] }
-      );
+        }));
 
-      const args = [orders.sells, orders.buys, orders.constructed, tradingRewards, feeDiscountEnabled]; // TODO remove trading rewards and fee discount enabled
-      const fn = contract.interface.getFunction('matchOrders');
-      const data = contract.interface.encodeFunctionData(fn, args);
+        const transactionsTooBig = transactionRequests.some((txRequest) => txRequest.gasLimit > MAX_GAS_LIMIT);
+        if (transactionsTooBig) {
+          const estimatedNumBundles = Math.ceil(transactionRequests.length / MAX_GAS_LIMIT);
+          const updatedNumBundles = numBundles >= estimatedNumBundles ? numBundles * 2 : estimatedNumBundles;
+          return await buildBundles(bundleItems, updatedNumBundles);
+        }
 
-      const estimate = await provider.estimateGas({
-        to: contract.address,
-        data
-      });
-  
-      const gasLimit = Math.floor(estimate.toNumber() * 1.2);
-      return [{ // TODO make sure gas limit is < 30_000_000
-        to: contract.address,
-        gasLimit: gasLimit,
-        data,
-        chainId: parseInt(chainId)
-      }];
+        return transactionRequests;
+      };
+
+      const txRequests =  await buildBundles(bundleItems, 1);
+
+      return txRequests;
     };
 
     return encoder;

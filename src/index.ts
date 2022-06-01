@@ -53,6 +53,11 @@ function registerBroadcasterListeners(
   broadcaster.on(FlashbotsBroadcasterEvent.Block, console.log);
   broadcaster.on(FlashbotsBroadcasterEvent.SubmittingBundle, console.log);
   broadcaster.on(FlashbotsBroadcasterEvent.RelayError, (event) => {
+    if(event.code === RelayErrorCode.InsufficientFunds) {
+      // signer does not have enough eth to pay for the gas
+      // TODO trigger transaction to swap eth for weth
+    }
+
     if (WEBHOOK_URL) {
       const embed = relayErrorToEmbed(event, broadcaster.chainId);
       sendWebhook(WEBHOOK_URL, embed).catch(console.error);
@@ -61,12 +66,13 @@ function registerBroadcasterListeners(
 
   broadcaster.on(FlashbotsBroadcasterEvent.Simulated, (event) => {
     try {
-      console.log(`Transaction reverted`);
       console.log(`Simulated`, JSON.stringify(event, null, 2));
-      // why would a tx get reverted?
-      // wasn't formed correctly => this shouldn't the case
-      // insufficient gas price
-      // await Promise.all(event.revertedTransactions.map((tx) => firestoreProvider.transactionReverted(tx.id)));
+      if(event.revertedTransactions.length > 0) {
+        // should only get reverted if the user doesn't have enough eth to refund the gas
+        
+        // mark the order match as invalid since the user didn't have enough eth to refund gas at 
+        // the time we attempted to execute the order
+      }
     } catch (err) {
       console.log(err);
     }
@@ -80,8 +86,12 @@ function registerBroadcasterListeners(
         const bundleItems = event.transfers
           .map((transfer) => broadcaster.getBundleItemFromTransfer(transfer))
           .filter((bundleItem) => !!bundleItem) as BundleItem[];
-        // TODO how do we handle bundleItems that were skipped?
-        // TODO call validate method on the bundleItem to see if it's valid before submission and delete if not valid
+        // TODO how do we handle bundleItems that were skipped? 
+        // bundle items should only be skipped if the orders are no longer valid 
+        // we should make the validate function on the contract an `external view` function 
+        // so we can check if each item is valid before submitting all of them together
+        // we also need to make sure that orders within the bundle aren't conflicting 
+        // we should not attempt to transfer the same tokens from one owner more than once
         const ids = [...new Set(bundleItems.map((item) => item.id))];
         await Promise.all(ids.map((id) => firestoreProvider.transactionCompleted(id)));
       } catch (err) {
