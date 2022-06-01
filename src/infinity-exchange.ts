@@ -96,31 +96,38 @@ export class InfinityExchange {
     bundle: BundleItem[],
     chainId: ChainId
   ): Promise<{ validBundleItems: BundleItem[]; invalidBundleItems: BundleItem[] }> {
-    const contract = this.getContract(chainId);
-    const results = await Promise.all(
-      bundle.map(
-        (item) =>
-          contract.functions.verifyMatchOrders(
-            item.sellOrderHash,
-            item.buyOrderHash,
-            item.sell,
-            item.buy,
-            item.constructed
-          ) as Promise<[boolean, string]>
-      )
-    );
+    try {
+      const contract = this.getContract(chainId);
+      const results = await Promise.allSettled(
+        bundle.map(
+          (item) =>
+            contract.functions.verifyMatchOrders(
+              item.sellOrderHash,
+              item.buyOrderHash,
+              item.sell,
+              item.buy,
+              item.constructed
+            ) as Promise<[boolean, string]>
+        )
+      );
 
-    return bundle.reduce(
-      (acc: { validBundleItems: BundleItem[]; invalidBundleItems: BundleItem[] }, bundleItem, index) => {
-        const [isValid] = results[index];
-        return {
-          ...acc,
-          validBundleItems: isValid ? [...acc.validBundleItems, bundleItem] : acc.validBundleItems,
-          invalidBundleItems: !isValid ? [...acc.invalidBundleItems, bundleItem] : acc.invalidBundleItems
-        };
-      },
-      { validBundleItems: [], invalidBundleItems: [] }
-    );
+      return bundle.reduce(
+        (acc: { validBundleItems: BundleItem[]; invalidBundleItems: BundleItem[] }, bundleItem, index) => {
+          const result = results[index];
+          const isValid = result.status === 'fulfilled' && result.value[0];
+          console.log(`${isValid ? '✅' : '❌'} ${bundleItem.sellOrderHash} ${bundleItem.buyOrderHash}`);
+          return {
+            validBundleItems: isValid ? [...acc.validBundleItems, bundleItem] : acc.validBundleItems,
+            invalidBundleItems: !isValid ? [...acc.invalidBundleItems, bundleItem] : acc.invalidBundleItems
+          };
+        },
+        { validBundleItems: [], invalidBundleItems: [] }
+      );
+    } catch (err) {
+      console.log(`failed to verify match orders`);
+      console.error(err);
+      throw err;
+    }
   }
 
   private getProvider(chainId: ChainId) {

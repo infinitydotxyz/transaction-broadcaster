@@ -34,14 +34,18 @@ export class TxBundlerPool implements TxPool<BundleItem> {
     for (const transferId of transferIds) {
       this.transferIdToBundleId.set(transferId, bundleItem.id);
     }
+    console.log(`added bundle type ${bundleType} for id: ${bundleItem.id} Size: ${this.idToBundleType.size}`);
   }
 
   remove(id: string): void {
+    console.log('remove', id);
     const bundleType = this.idToBundleType.get(id);
+    console.log(`removed item. bundle type ${bundleType} Size: ${this.idToBundleType.size}`);
     if (bundleType) {
       const bundle = this.bundlePool.get(bundleType);
       const bundleItem = bundle?.get(id);
       bundle?.delete(id);
+      console.log('bundleItem', bundleItem);
       if (bundleItem) {
         const transferIds = this.getTransferIdsFromBundleItem(bundleItem);
         for (const transferId of transferIds) {

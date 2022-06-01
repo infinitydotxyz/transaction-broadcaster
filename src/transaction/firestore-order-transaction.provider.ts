@@ -35,10 +35,13 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
             switch (change.type) {
               case 'added':
               case 'modified':
+                console.log(`Order was added or modified: ${ref.id}`);
                 this.handleOrderMatchUpdate(ref.id, match).catch(console.error);
                 break;
               case 'removed':
-                this.handleOrderMatchDelete(ref.id);
+                console.log(`Order was removed: ${ref.id}`);
+                // TODO can we tell when an order match is no longer active?
+                this.handleOrderMatchRemoved(ref.id);
                 break;
             }
           }
@@ -53,6 +56,11 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
     } catch (err) {
       console.error(err);
     }
+  }
+
+  async orderCompleted(id: string, status: FirestoreOrderMatchStatus): Promise<void> {
+    const matchRef = this.db.collection(firestoreConstants.ORDER_MATCHES_COLL).doc(id);
+    await matchRef.update({ status });
   }
 
   async transactionCompleted(id: string): Promise<void> {
@@ -72,7 +80,7 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
       }
 
       const { listing, offer } = await this.getOrders(match);
-      const bundleItem = this.createBundleItem(listing, offer, match);
+      const bundleItem = this.createBundleItem(id, listing, offer, match);
 
       this.emit(TransactionProviderEvent.Update, { id, item: bundleItem });
     } catch (err) {
@@ -80,7 +88,7 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
     }
   }
 
-  private createBundleItem(listing: FirestoreOrder, offer: FirestoreOrder, match: FirestoreOrderMatch): BundleItem {
+  private createBundleItem(id: string, listing: FirestoreOrder, offer: FirestoreOrder, match: FirestoreOrderMatch): BundleItem {
     const chainNfts: ChainNFTs[] = [];
     let numMatches = 0;
     const collections = Object.values(match.collections);
@@ -130,7 +138,7 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
     };
 
     const bundle: BundleItem = {
-      id: `${listing.id}-${offer.id}`,
+      id,
       chainId: listing.chainId as ChainId,
       bundleType: BundleType.MatchOrders,
       exchangeAddress: getExchangeAddress(listing.chainId),
@@ -143,7 +151,7 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
     return bundle;
   }
 
-  private handleOrderMatchDelete(id: string): void {
+  private handleOrderMatchRemoved(id: string): void {
     this.emit(TransactionProviderEvent.Remove, { id });
   }
 
