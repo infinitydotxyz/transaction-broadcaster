@@ -39,12 +39,12 @@ export interface StoppingEvent {}
 export interface StoppedEvent {}
 
 export enum RevertReason {
-  InsufficientAllowance = 'insufficient-allowance',
+  InsufficientAllowance = 'insufficient-allowance'
 }
 
 export interface SimulatedEvent {
   successfulTransactions: providers.TransactionRequest[];
-  revertedTransactions: { tx: providers.TransactionRequest, reason: RevertReason | string }[]
+  revertedTransactions: { tx: providers.TransactionRequest; reason: RevertReason | string }[];
   gasPrice: BigNumber;
   totalGasUsed: number;
 }

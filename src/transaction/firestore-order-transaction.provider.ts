@@ -48,6 +48,7 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
 
   async transactionReverted(id: string): Promise<void> {
     try {
+      // TODO handle orders that are no longer valid
       await this.deleteOrderMatch(id);
     } catch (err) {
       console.error(err);
@@ -56,7 +57,6 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
 
   async transactionCompleted(id: string): Promise<void> {
     try {
-      
       await this.deleteOrderMatch(id);
       // TODO should we mark the order as invalid once it has been fulfilled?
       // TODO how do we know that this has been completed and it wasn't just skipped?
@@ -80,11 +80,7 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
     }
   }
 
-  private createBundleItem(
-    listing: FirestoreOrder,
-    offer: FirestoreOrder,
-    match: FirestoreOrderMatch,
-  ): BundleItem {
+  private createBundleItem(listing: FirestoreOrder, offer: FirestoreOrder, match: FirestoreOrderMatch): BundleItem {
     const chainNfts: ChainNFTs[] = [];
     let numMatches = 0;
     const collections = Object.values(match.collections);
@@ -104,7 +100,7 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
       }
       chainNfts.push(collectionChainNfts);
 
-      if(collectionNumMatches === 0) {
+      if (collectionNumMatches === 0) {
         collectionNumMatches += 1;
       }
 
@@ -136,8 +132,10 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
       exchangeAddress: getExchangeAddress(listing.chainId),
       sell: listing.signedOrder,
       buy: offer.signedOrder,
-      constructed,
-    }
+      buyOrderHash: offer.id,
+      sellOrderHash: listing.id,
+      constructed
+    };
     return bundle;
   }
 

@@ -4,7 +4,7 @@ import { getExchangeAddress } from '@infinityxyz/lib/utils/orders';
 import { Contract, providers } from 'ethers';
 import { infinityExchangeAbi } from './abi/infinity-exchange.abi';
 import { MAX_GAS_LIMIT } from './constants';
-import { BundleItem, MatchOrdersBundle } from './flashbots-broadcaster/bundle.types';
+import { BundleItem, MatchOrdersBundle, MatchOrdersEncoder } from './flashbots-broadcaster/bundle.types';
 
 export class InfinityExchange {
   private contracts: Map<ChainId, Contract>;
@@ -19,23 +19,14 @@ export class InfinityExchange {
   public getMatchOrdersEncoder(chainId: ChainId) {
     const contract = this.getContract(chainId);
     const provider = this.getProvider(chainId);
-    const encoder = async (bundleItems: BundleItem[]): Promise<TransactionRequest[]> => {
-      const tradingRewards = false;
-      const feeDiscountEnabled = false;
-
+    const encoder: MatchOrdersEncoder = async (
+      bundleItems: BundleItem[]
+    ): Promise<{ txRequests: TransactionRequest[]; invalidBundleItems: BundleItem[] }> => {
       const buildBundles = async (
         bundleItems: MatchOrdersBundle[],
         numBundles: number
       ): Promise<TransactionRequest[]> => {
-        /**
-         * spread the orders that will cost the most gas into different bundles
-         */
-        const bundleItemsSortedByNumMatches = bundleItems.sort((a, b) => {
-          const numMatchesA = a.constructed.constraints[0] as number;
-          const numMatchesB = b.constructed.constraints[0] as number;
-          return numMatchesB - numMatchesA;
-        });
-        const bundles = bundleItemsSortedByNumMatches.reduce(
+        const bundles = bundleItems.reduce(
           (
             acc: { sells: ChainOBOrder[]; buys: ChainOBOrder[]; constructed: ChainOBOrder[] }[],
             bundleItem,
@@ -51,22 +42,24 @@ export class InfinityExchange {
           },
           []
         );
-        const transactionRequests = await Promise.all(bundles.map(async (bundle) => {
-          const args = [bundle.sells, bundle.buys, bundle.constructed]; 
-          const fn = contract.interface.getFunction('matchOrders');
-          const data = contract.interface.encodeFunctionData(fn, args);
-          const estimate = await provider.estimateGas({
-            to: contract.address,
-            data
-          });
-          const gasLimit = Math.floor(estimate.toNumber() * 1.2);
-          return {
-            to: contract.address,
-            gasLimit: gasLimit,
-            data,
-            chainId: parseInt(chainId)
-          };
-        }));
+        const transactionRequests = await Promise.all(
+          bundles.map(async (bundle) => {
+            const args = [bundle.sells, bundle.buys, bundle.constructed];
+            const fn = contract.interface.getFunction('matchOrders');
+            const data = contract.interface.encodeFunctionData(fn, args);
+            const estimate = await provider.estimateGas({
+              to: contract.address,
+              data
+            });
+            const gasLimit = Math.floor(estimate.toNumber() * 1.2);
+            return {
+              to: contract.address,
+              gasLimit: gasLimit,
+              data,
+              chainId: parseInt(chainId)
+            };
+          })
+        );
 
         const transactionsTooBig = transactionRequests.some((txRequest) => txRequest.gasLimit > MAX_GAS_LIMIT);
         if (transactionsTooBig) {
@@ -74,16 +67,60 @@ export class InfinityExchange {
           const updatedNumBundles = numBundles >= estimatedNumBundles ? numBundles * 2 : estimatedNumBundles;
           return await buildBundles(bundleItems, updatedNumBundles);
         }
-
         return transactionRequests;
       };
 
-      const txRequests =  await buildBundles(bundleItems, 1);
+      /**
+       * spread the orders that will cost the most gas into different bundles
+       */
+      const bundleItemsSortedByNumMatches = bundleItems.sort((a, b) => {
+        const numMatchesA = a.constructed.constraints[0] as number;
+        const numMatchesB = b.constructed.constraints[0] as number;
+        return numMatchesB - numMatchesA;
+      });
 
-      return txRequests;
+      const { validBundleItems, invalidBundleItems } = await this.verifyMatchOrders(
+        bundleItemsSortedByNumMatches,
+        chainId
+      );
+
+      const txRequests = await buildBundles(validBundleItems, 1); // TODO estimate the number of bundles needed
+
+      return { txRequests, invalidBundleItems };
     };
 
     return encoder;
+  }
+
+  private async verifyMatchOrders(
+    bundle: BundleItem[],
+    chainId: ChainId
+  ): Promise<{ validBundleItems: BundleItem[]; invalidBundleItems: BundleItem[] }> {
+    const contract = this.getContract(chainId);
+    const results = await Promise.all(
+      bundle.map(
+        (item) =>
+          contract.functions.verifyMatchOrders(
+            item.sellOrderHash,
+            item.buyOrderHash,
+            item.sell,
+            item.buy,
+            item.constructed
+          ) as Promise<[boolean, string]>
+      )
+    );
+
+    return bundle.reduce(
+      (acc: { validBundleItems: BundleItem[]; invalidBundleItems: BundleItem[] }, bundleItem, index) => {
+        const [isValid] = results[index];
+        return {
+          ...acc,
+          validBundleItems: isValid ? [...acc.validBundleItems, bundleItem] : acc.validBundleItems,
+          invalidBundleItems: !isValid ? [...acc.invalidBundleItems, bundleItem] : acc.invalidBundleItems
+        };
+      },
+      { validBundleItems: [], invalidBundleItems: [] }
+    );
   }
 
   private getProvider(chainId: ChainId) {

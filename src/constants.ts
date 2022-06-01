@@ -32,13 +32,14 @@ export const erc721ContractTransferTopic = '0xddf252ad1be2c89b69c2b068fc378daa95
 export const erc1155ContractTransferSingleTopic = '0xc3d58168c5ae7397731d063d5bbf3d657854427343f4c083240f7aacaa2d0f62';
 export const erc1155ContractTransferBatchTopic = '0x4a39dc06d4c0dbc64b70af90fd698a233a518aa5d07e595d983b8c0526c8f7fb';
 export const transferTopicByTokenStandard: Record<SupportedTokenStandard, string[]> = {
-  [SupportedTokenStandard.ERC721]: [erc721ContractTransferTopic],
+  [SupportedTokenStandard.ERC721]: [erc721ContractTransferTopic]
   // [TokenStandard.ERC1155]: [erc1155ContractTransferSingleTopic, erc1155ContractTransferBatchTopic],
 };
 export const tokenStandardByTransferTopic: Record<string, SupportedTokenStandard> = {
-  [erc721ContractTransferTopic]: SupportedTokenStandard.ERC721,
+  [erc721ContractTransferTopic]: SupportedTokenStandard.ERC721
 };
 
-export const transferTopics = new Set(Object.values(transferTopicByTokenStandard).flatMap(item => item));
+export const transferTopics = new Set(Object.values(transferTopicByTokenStandard).flatMap((item) => item));
 
+// TODO handle this programmatically
 export const MAX_GAS_LIMIT = 30_000_000;

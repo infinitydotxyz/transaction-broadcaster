@@ -27,7 +27,7 @@ import {
 import { decodeTransfer } from '../ethers';
 import { ChainId } from '@infinityxyz/lib/types/core';
 import { EthWethSwapper, Token } from '../eth-weth-swapper';
-import { ETHER, GWEI } from '../constants';
+import { ETHER } from '../constants';
 
 export class FlashbotsBroadcaster<T extends { id: string }> {
   public readonly chainId: ChainId;
@@ -296,20 +296,23 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
     return signedBundle;
   }
 
-  private async simulateBundle(transactions: providers.TransactionRequest[], alreadySwapped = false): Promise<SimulatedEvent> {
+  private async simulateBundle(
+    transactions: providers.TransactionRequest[],
+    alreadySwapped = false
+  ): Promise<SimulatedEvent> {
     const signedBundle = await this.getSignedBundle(transactions);
 
     const simulationResult = await this.flashbotsProvider.simulate(signedBundle, 'latest');
 
     if ('error' in simulationResult) {
       /**
-       * attempt to create a tx to swap weth for eth, place it at the beginning of the bundle 
+       * attempt to create a tx to swap weth for eth, place it at the beginning of the bundle
        * and try again
        */
-      if(simulationResult.error.code === RelayErrorCode.InsufficientFunds && !alreadySwapped) {
+      if (simulationResult.error.code === RelayErrorCode.InsufficientFunds && !alreadySwapped) {
         console.log(`\n\nInsufficient funds, attempting to swap weth for eth\n\n`);
         const wethBalance = await this.swapper.checkBalance(Token.Weth);
-        if(wethBalance.gte(ETHER.div(10))) {
+        if (wethBalance.gte(ETHER.div(10))) {
           const transferRequest = await this.swapper.swapWethForEth(wethBalance.toString());
           transactions.unshift(transferRequest);
           return this.simulateBundle(transactions, true);
@@ -328,14 +331,14 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
 
     const simulatedGasPrice = gasPrice;
     const successful: providers.TransactionRequest[] = [];
-    const reverted: { tx: providers.TransactionRequest, reason: string }[] = [];
+    const reverted: { tx: providers.TransactionRequest; reason: string }[] = [];
     for (let index = 0; index < simulationResult.results.length; index += 1) {
       const txSim = simulationResult.results[index];
       const tx = transactions[index];
       if ('error' in txSim) {
         const insufficientAllowance = txSim.revert.includes('insufficient allowance');
         const reason = insufficientAllowance ? RevertReason.InsufficientAllowance : txSim.revert;
-        console.log(`\nTransaction failed: ${reason}`)
+        console.log(`\nTransaction failed: ${reason}`);
         reverted.push({ tx, reason });
       } else {
         successful.push(tx);

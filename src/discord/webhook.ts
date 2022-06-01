@@ -15,8 +15,8 @@ export async function sendWebhook(url: string, embed: DiscordEmbed) {
         'Content-Type': 'application/json'
       }
     });
-    if(res.statusCode !== 204) {
-      throw new Error(res.body.toString())
+    if (res.statusCode !== 204) {
+      throw new Error(res.body.toString());
     }
   } catch (err) {
     console.error(`Failed to send webhook`);

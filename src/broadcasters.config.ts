@@ -14,7 +14,7 @@ const txBundlerPoolOptions: TxBundlerPoolOptions = {
   minBundleSize: {
     [BundleType.MatchOrders]: 2
   }
-}
+};
 
 const flashbotsOptions: Pick<
   FlashbotsBroadcasterOptions,
@@ -50,36 +50,35 @@ export const flashbotsOptionsGoerli: FlashbotsBroadcasterOptions = {
 
 const chainIdProviders: Record<SupportedChainId, providers.JsonRpcProvider> = {
   // [ChainId.Mainnet]: getProvider(ChainId.Mainnet),
-  [ChainId.Goerli]: getProvider(ChainId.Goerli),
+  [ChainId.Goerli]: getProvider(ChainId.Goerli)
 } as any; // TODO add mainnet
 
 export const infinityExchange = new InfinityExchange(chainIdProviders as Record<ChainId, providers.JsonRpcProvider>);
 
-// const mainnetEncoder = infinityExchange.getMatchOrdersEncoder(ChainId.Mainnet).bind(infinityExchange); 
+// const mainnetEncoder = infinityExchange.getMatchOrdersEncoder(ChainId.Mainnet).bind(infinityExchange);
 const goerliEncoder = infinityExchange.getMatchOrdersEncoder(ChainId.Goerli).bind(infinityExchange);
 
 export const bundleEncoders: Record<SupportedChainId, Record<BundleType, BundleEncoder[BundleType]>> = {
-    // [ChainId.Mainnet]: {
-    //     [BundleType.MatchOrders]: mainnetEncoder,
-    // },
-    [ChainId.Goerli]: {
-        [BundleType.MatchOrders]: goerliEncoder,
-    }
+  // [ChainId.Mainnet]: {
+  //     [BundleType.MatchOrders]: mainnetEncoder,
+  // },
+  [ChainId.Goerli]: {
+    [BundleType.MatchOrders]: goerliEncoder
+  }
 } as any; // TODO add mainnet
 
-
 export async function getBroadcasters() {
-    // const mainnetTxPool = new TxBundlerPool(bundleEncoders[ChainId.Mainnet], txBundlerPoolOptions);
-    const goerliTxPool = new TxBundlerPool(bundleEncoders[ChainId.Goerli], txBundlerPoolOptions);
-  
-    // const mainnetBroadcaster = await FlashbotsBroadcaster.create(mainnetTxPool, flashbotsOptionsMainnet);
-    const goerliBroadcaster = await FlashbotsBroadcaster.create(goerliTxPool, flashbotsOptionsGoerli);
-  
-    const chainIdBroadcasters: Record<SupportedChainId, FlashbotsBroadcaster<BundleItem>> = {
-      // [ChainId.Mainnet]: mainnetBroadcaster,
-      // [ChainId.Mainnet]: {} as any,
-      [ChainId.Goerli]: goerliBroadcaster
-    } as any; // TODO add mainnet
-  
-    return chainIdBroadcasters;
-  }
+  // const mainnetTxPool = new TxBundlerPool(bundleEncoders[ChainId.Mainnet], txBundlerPoolOptions);
+  const goerliTxPool = new TxBundlerPool(bundleEncoders[ChainId.Goerli], txBundlerPoolOptions);
+
+  // const mainnetBroadcaster = await FlashbotsBroadcaster.create(mainnetTxPool, flashbotsOptionsMainnet);
+  const goerliBroadcaster = await FlashbotsBroadcaster.create(goerliTxPool, flashbotsOptionsGoerli);
+
+  const chainIdBroadcasters: Record<SupportedChainId, FlashbotsBroadcaster<BundleItem>> = {
+    // [ChainId.Mainnet]: mainnetBroadcaster,
+    // [ChainId.Mainnet]: {} as any,
+    [ChainId.Goerli]: goerliBroadcaster
+  } as any; // TODO add mainnet
+
+  return chainIdBroadcasters;
+}

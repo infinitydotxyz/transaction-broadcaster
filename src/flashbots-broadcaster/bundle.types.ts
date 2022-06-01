@@ -18,12 +18,17 @@ export interface MatchOrdersBundle extends BaseBundleItem {
   exchangeAddress: string;
   sell: ChainOBOrder;
   buy: ChainOBOrder;
+  sellOrderHash: string;
+  buyOrderHash: string;
   constructed: ChainOBOrder;
 }
 
 export type BundleItem = MatchOrdersBundle;
-export type MatchOrdersEncoder = (args: BundleItem[]) => Promise<TransactionRequest[]>;
+export type MatchOrdersEncoder = (
+  bundleItems: BundleItem[],
+  minBundleSize: number
+) => Promise<{ txRequests: TransactionRequest[]; invalidBundleItems: BundleItem[] }>;
 
 export type BundleEncoder = {
-  [BundleType.MatchOrders]: MatchOrdersEncoder
+  [BundleType.MatchOrders]: MatchOrdersEncoder;
 };

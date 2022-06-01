@@ -17,8 +17,8 @@ export class EthWethSwapper {
   constructor(private provider: providers.JsonRpcProvider, private wallet: Wallet) {
     this.chainId = `${provider.network.chainId}` as ChainId;
     this.wethAddress = chainConstants[this.chainId].wethAddress;
-    if(!this.wethAddress) {
-        throw new Error(`No weth address found for chainId: ${this.chainId}`);
+    if (!this.wethAddress) {
+      throw new Error(`No weth address found for chainId: ${this.chainId}`);
     }
   }
 

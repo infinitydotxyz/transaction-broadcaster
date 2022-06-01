@@ -1,4 +1,4 @@
-import { ethers } from "ethers";
+import { ethers } from 'ethers';
 
 export const wethAbi = [
   {
@@ -152,4 +152,4 @@ export const wethAbi = [
     name: 'Withdrawal',
     type: 'event'
   }
-]  as unknown as ethers.utils.Fragment[];
+] as unknown as ethers.utils.Fragment[];
