@@ -52,7 +52,7 @@ export class InfinityExchange {
           []
         );
         const transactionRequests = await Promise.all(bundles.map(async (bundle) => {
-          const args = [bundle.sells, bundle.buys, bundle.constructed, tradingRewards, feeDiscountEnabled]; // TODO remove trading rewards and fee discount enabled
+          const args = [bundle.sells, bundle.buys, bundle.constructed]; 
           const fn = contract.interface.getFunction('matchOrders');
           const data = contract.interface.encodeFunctionData(fn, args);
           const estimate = await provider.estimateGas({
