@@ -69,7 +69,7 @@ function registerBroadcasterListeners(
       console.log(`Simulated`, JSON.stringify(event, null, 2));
       if(event.revertedTransactions.length > 0) {
         // should only get reverted if the user doesn't have enough eth to refund the gas
-        
+
         // mark the order match as invalid since the user didn't have enough eth to refund gas at 
         // the time we attempted to execute the order
       }
