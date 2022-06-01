@@ -16,7 +16,8 @@ import {
   SubmittingBundleEvent,
   SuccessfulBundleSubmission,
   TokenTransfer,
-  RevertReason
+  RevertReason,
+  RelayErrorCode
 } from './flashbots-broadcaster-emitter.types';
 import {
   FlashbotsBroadcasterSettings,
@@ -25,12 +26,14 @@ import {
 } from './flashbots-broadcaster-options.types';
 import { decodeTransfer } from '../ethers';
 import { ChainId } from '@infinityxyz/lib/types/core';
+import { EthWethSwapper, Token } from '../eth-weth-swapper';
+import { ETHER, GWEI } from '../constants';
 
 export class FlashbotsBroadcaster<T extends { id: string }> {
   public readonly chainId: ChainId;
   private authSigner: Wallet;
   private signer: Wallet;
-  private provider: providers.BaseProvider;
+  private provider: providers.JsonRpcProvider;
   private flashbotsProvider: FlashbotsBundleProvider;
   private txPool: TxPool<T>;
   private mutex: boolean;
@@ -38,6 +41,8 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
   private readonly settings: FlashbotsBroadcasterSettings;
   private shutdown?: () => Promise<void>;
   private emitter: EventEmitter;
+
+  private swapper: EthWethSwapper;
 
   static async create<T extends { id: string }>(txPool: TxPool<T>, options: FlashbotsBroadcasterOptions) {
     const authSigner = new Wallet(options.authSigner.privateKey, options.provider);
@@ -78,6 +83,7 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
     this.mutex = false;
     this.txPool = options.txPool;
     this.chainId = `${this.network.chainId}` as ChainId;
+    this.swapper = new EthWethSwapper(this.provider, this.signer);
   }
 
   /**
@@ -290,12 +296,25 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
     return signedBundle;
   }
 
-  private async simulateBundle(transactions: providers.TransactionRequest[]) {
+  private async simulateBundle(transactions: providers.TransactionRequest[], alreadySwapped = false): Promise<SimulatedEvent> {
     const signedBundle = await this.getSignedBundle(transactions);
 
     const simulationResult = await this.flashbotsProvider.simulate(signedBundle, 'latest');
 
     if ('error' in simulationResult) {
+      /**
+       * attempt to create a tx to swap weth for eth, place it at the beginning of the bundle 
+       * and try again
+       */
+      if(simulationResult.error.code === RelayErrorCode.InsufficientFunds && !alreadySwapped) {
+        console.log(`\n\nInsufficient funds, attempting to swap weth for eth\n\n`);
+        const wethBalance = await this.swapper.checkBalance(Token.Weth);
+        if(wethBalance.gte(ETHER.div(10))) {
+          const transferRequest = await this.swapper.swapWethForEth(wethBalance.toString());
+          transactions.unshift(transferRequest);
+          return this.simulateBundle(transactions, true);
+        }
+      }
       const relayError: RelayErrorEvent = {
         message: simulationResult.error.message,
         code: simulationResult.error.code
