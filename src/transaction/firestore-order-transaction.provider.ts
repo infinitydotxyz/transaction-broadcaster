@@ -108,7 +108,11 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
     }
 
     const constructed: ChainOBOrder = {
-      isSellOrder: true,
+      /**
+       * refunding gas fees is done in WETH and paid by the buyer
+       * therefore constructed isSellOrder needs to be the buy order side
+       */
+      isSellOrder: false,
       signer: listing.signedOrder.signer,
       constraints: [
         numMatches,
