@@ -1,5 +1,5 @@
 import { FlashbotsBundleResolution } from '@flashbots/ethers-provider-bundle';
-import { BigNumber, providers } from 'ethers/lib/ethers';
+import { BigNumber, BigNumberish, providers } from 'ethers/lib/ethers';
 import { FlashbotsBroadcasterSettings } from './flashbots-broadcaster-options.types';
 
 export enum FlashbotsBroadcasterEvent {
@@ -102,7 +102,7 @@ export interface RelayErrorEvent {
 
 export interface BlockEvent {
   blockNumber: number;
-  gasPrice: BigNumber;
+  gasPrice: BigNumberish;
 }
 
 export type GetEventType = {

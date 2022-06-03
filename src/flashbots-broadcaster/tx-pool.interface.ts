@@ -6,7 +6,7 @@ export interface TxPool<T extends { id: string }> {
 
   remove(id: string): void;
 
-  getTransactions(options: { maxGasFeeGwei: number }): Promise<TransactionRequest[]>;
+  getTransactions(options: { maxGasFeeGwei: number }): Promise<{ txRequests: TransactionRequest[], invalid?: T[]}>;
 
   getBundleFromTransfer(transfer: TokenTransfer): T | undefined;
 }

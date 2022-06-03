@@ -117,44 +117,6 @@ export const infinityExchangeAbi = [
     inputs: [
       {
         indexed: false,
-        internalType: 'address',
-        name: 'collection',
-        type: 'address'
-      },
-      {
-        indexed: false,
-        internalType: 'address',
-        name: 'currency',
-        type: 'address'
-      },
-      {
-        indexed: false,
-        internalType: 'uint256',
-        name: 'totalFees',
-        type: 'uint256'
-      }
-    ],
-    name: 'FeeSent',
-    type: 'event'
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: false,
-        internalType: 'address',
-        name: 'matchExecutor',
-        type: 'address'
-      }
-    ],
-    name: 'NewMatchExecutor',
-    type: 'event'
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: false,
         internalType: 'bytes32',
         name: 'sellOrderHash',
         type: 'bytes32'
@@ -190,43 +152,26 @@ export const infinityExchangeAbi = [
         type: 'address'
       },
       {
-        components: [
-          {
-            internalType: 'address',
-            name: 'collection',
-            type: 'address'
-          },
-          {
-            components: [
-              {
-                internalType: 'uint256',
-                name: 'tokenId',
-                type: 'uint256'
-              },
-              {
-                internalType: 'uint256',
-                name: 'numTokens',
-                type: 'uint256'
-              }
-            ],
-            internalType: 'struct OrderTypes.TokenInfo[]',
-            name: 'tokens',
-            type: 'tuple[]'
-          }
-        ],
-        indexed: false,
-        internalType: 'struct OrderTypes.OrderItem[]',
-        name: 'nfts',
-        type: 'tuple[]'
-      },
-      {
         indexed: false,
         internalType: 'uint256',
         name: 'amount',
         type: 'uint256'
       }
     ],
-    name: 'OrderFulfilled',
+    name: 'MatchOrderFulfilled',
+    type: 'event'
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: false,
+        internalType: 'address',
+        name: 'matchExecutor',
+        type: 'address'
+      }
+    ],
+    name: 'NewMatchExecutor',
     type: 'event'
   },
   {
@@ -246,6 +191,49 @@ export const infinityExchangeAbi = [
       }
     ],
     name: 'OwnershipTransferred',
+    type: 'event'
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: false,
+        internalType: 'bytes32',
+        name: 'orderHash',
+        type: 'bytes32'
+      },
+      {
+        indexed: false,
+        internalType: 'address',
+        name: 'seller',
+        type: 'address'
+      },
+      {
+        indexed: false,
+        internalType: 'address',
+        name: 'buyer',
+        type: 'address'
+      },
+      {
+        indexed: false,
+        internalType: 'address',
+        name: 'complication',
+        type: 'address'
+      },
+      {
+        indexed: false,
+        internalType: 'address',
+        name: 'currency',
+        type: 'address'
+      },
+      {
+        indexed: false,
+        internalType: 'uint256',
+        name: 'amount',
+        type: 'uint256'
+      }
+    ],
+    name: 'TakeOrderFulfilled',
     type: 'event'
   },
   {
@@ -408,6 +396,91 @@ export const infinityExchangeAbi = [
       }
     ],
     name: 'isNonceValid',
+    outputs: [
+      {
+        internalType: 'bool',
+        name: '',
+        type: 'bool'
+      }
+    ],
+    stateMutability: 'view',
+    type: 'function'
+  },
+  {
+    inputs: [
+      {
+        components: [
+          {
+            internalType: 'bool',
+            name: 'isSellOrder',
+            type: 'bool'
+          },
+          {
+            internalType: 'address',
+            name: 'signer',
+            type: 'address'
+          },
+          {
+            internalType: 'uint256[]',
+            name: 'constraints',
+            type: 'uint256[]'
+          },
+          {
+            components: [
+              {
+                internalType: 'address',
+                name: 'collection',
+                type: 'address'
+              },
+              {
+                components: [
+                  {
+                    internalType: 'uint256',
+                    name: 'tokenId',
+                    type: 'uint256'
+                  },
+                  {
+                    internalType: 'uint256',
+                    name: 'numTokens',
+                    type: 'uint256'
+                  }
+                ],
+                internalType: 'struct OrderTypes.TokenInfo[]',
+                name: 'tokens',
+                type: 'tuple[]'
+              }
+            ],
+            internalType: 'struct OrderTypes.OrderItem[]',
+            name: 'nfts',
+            type: 'tuple[]'
+          },
+          {
+            internalType: 'address[]',
+            name: 'execParams',
+            type: 'address[]'
+          },
+          {
+            internalType: 'bytes',
+            name: 'extraParams',
+            type: 'bytes'
+          },
+          {
+            internalType: 'bytes',
+            name: 'sig',
+            type: 'bytes'
+          }
+        ],
+        internalType: 'struct OrderTypes.Order',
+        name: 'order',
+        type: 'tuple'
+      },
+      {
+        internalType: 'bytes32',
+        name: 'orderHash',
+        type: 'bytes32'
+      }
+    ],
+    name: 'isOrderValid',
     outputs: [
       {
         internalType: 'bool',

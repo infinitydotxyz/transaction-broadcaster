@@ -1,5 +1,5 @@
 import { ChainId } from '@infinityxyz/lib/types/core';
-import { providers } from 'ethers';
+import { providers, Wallet } from 'ethers';
 import { AUTH_SIGNER_GOERLI, AUTH_SIGNER_MAINNET, SIGNER_GOERLI, SIGNER_MAINNET } from './constants';
 import { getProvider } from './ethers';
 import { BundleEncoder, BundleItem, BundleType } from './flashbots-broadcaster/bundle.types';
@@ -45,40 +45,42 @@ export const flashbotsOptionsGoerli: FlashbotsBroadcasterOptions = {
     privateKey: SIGNER_GOERLI
   },
   provider: getProvider(ChainId.Goerli),
-  ...flashbotsOptions
+  ...flashbotsOptions,
+  priorityFee: 1
 };
 
 const chainIdProviders: Record<SupportedChainId, providers.JsonRpcProvider> = {
-  // [ChainId.Mainnet]: getProvider(ChainId.Mainnet),
+  [ChainId.Mainnet]: getProvider(ChainId.Mainnet),
   [ChainId.Goerli]: getProvider(ChainId.Goerli)
-} as any; // TODO add mainnet
+};
 
 export const infinityExchange = new InfinityExchange(chainIdProviders as Record<ChainId, providers.JsonRpcProvider>);
 
-// const mainnetEncoder = infinityExchange.getMatchOrdersEncoder(ChainId.Mainnet).bind(infinityExchange);
-const goerliEncoder = infinityExchange.getMatchOrdersEncoder(ChainId.Goerli).bind(infinityExchange);
+const mainnetSigner = new Wallet(SIGNER_MAINNET, chainIdProviders[ChainId.Mainnet]);
+const goerliSigner = new Wallet(SIGNER_GOERLI, chainIdProviders[ChainId.Goerli]);
+const mainnetEncoder = infinityExchange.getMatchOrdersEncoder(ChainId.Mainnet, mainnetSigner.address).bind(infinityExchange);
+const goerliEncoder = infinityExchange.getMatchOrdersEncoder(ChainId.Goerli, goerliSigner.address).bind(infinityExchange);
 
 export const bundleEncoders: Record<SupportedChainId, Record<BundleType, BundleEncoder[BundleType]>> = {
-  // [ChainId.Mainnet]: {
-  //     [BundleType.MatchOrders]: mainnetEncoder,
-  // },
+  [ChainId.Mainnet]: {
+      [BundleType.MatchOrders]: mainnetEncoder,
+  },
   [ChainId.Goerli]: {
     [BundleType.MatchOrders]: goerliEncoder
   }
-} as any; // TODO add mainnet
+};
 
 export async function getBroadcasters() {
-  // const mainnetTxPool = new TxBundlerPool(bundleEncoders[ChainId.Mainnet], txBundlerPoolOptions);
+  const mainnetTxPool = new TxBundlerPool(bundleEncoders[ChainId.Mainnet], txBundlerPoolOptions);
   const goerliTxPool = new TxBundlerPool(bundleEncoders[ChainId.Goerli], txBundlerPoolOptions);
 
-  // const mainnetBroadcaster = await FlashbotsBroadcaster.create(mainnetTxPool, flashbotsOptionsMainnet);
+  const mainnetBroadcaster = await FlashbotsBroadcaster.create(mainnetTxPool, flashbotsOptionsMainnet);
   const goerliBroadcaster = await FlashbotsBroadcaster.create(goerliTxPool, flashbotsOptionsGoerli);
 
   const chainIdBroadcasters: Record<SupportedChainId, FlashbotsBroadcaster<BundleItem>> = {
-    // [ChainId.Mainnet]: mainnetBroadcaster,
-    // [ChainId.Mainnet]: {} as any,
+    [ChainId.Mainnet]: mainnetBroadcaster,
     [ChainId.Goerli]: goerliBroadcaster
-  } as any; // TODO add mainnet
+  };
 
   return chainIdBroadcasters;
 }

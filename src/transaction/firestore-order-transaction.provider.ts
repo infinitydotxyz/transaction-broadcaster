@@ -11,6 +11,7 @@ import {
 import { TransactionProviderEvent } from './transaction.provider.interface';
 import { getExchangeAddress } from '@infinityxyz/lib/utils/orders';
 import { BundleItem, BundleType } from '../flashbots-broadcaster/bundle.types';
+import { BigNumber } from 'ethers';
 
 export class FirestoreOrderTransactionProvider extends TransactionProvider {
   constructor(private db: FirebaseFirestore.Firestore) {
@@ -35,12 +36,9 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
             switch (change.type) {
               case 'added':
               case 'modified':
-                console.log(`Order was added or modified: ${ref.id}`);
                 this.handleOrderMatchUpdate(ref.id, match).catch(console.error);
                 break;
               case 'removed':
-                console.log(`Order was removed: ${ref.id}`);
-                // TODO can we tell when an order match is no longer active?
                 this.handleOrderMatchRemoved(ref.id);
                 break;
             }
@@ -84,7 +82,7 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
 
       this.emit(TransactionProviderEvent.Update, { id, item: bundleItem });
     } catch (err) {
-      console.error(err);
+      // console.error(err);
     }
   }
 
@@ -124,8 +122,8 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
       signer: listing.signedOrder.signer,
       constraints: [
         numMatches,
-        offer.signedOrder.constraints[1],
-        offer.signedOrder.constraints[2],
+        BigNumber.from(offer.signedOrder.constraints[1]).toString(),
+        BigNumber.from(offer.signedOrder.constraints[2]).toString(),
         offer.signedOrder.constraints[3],
         offer.signedOrder.constraints[4],
         offer.minBpsToSeller,
@@ -133,10 +131,12 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
       ],
       nfts: chainNfts,
       execParams: [listing.complicationAddress, listing.currencyAddress],
-      extraParams: [],
+      extraParams: listing.signedOrder.extraParams,
       sig: listing.signedOrder.sig
     };
 
+    listing.signedOrder.constraints = listing.signedOrder.constraints.map((item) => BigNumber.from(item).toString());
+    offer.signedOrder.constraints = offer.signedOrder.constraints.map((item) => BigNumber.from(item).toString());
     const bundle: BundleItem = {
       id,
       chainId: listing.chainId as ChainId,
@@ -164,8 +164,8 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
     const orderSnaps = (await this.db.getAll(...orderRefs)) as FirebaseFirestore.DocumentSnapshot<FirestoreOrder>[];
 
     const orders = orderSnaps.map((item) => item.data() as FirestoreOrder);
-    const listings = orders.filter((item) => item.isSellOrder === true);
-    const offers = orders.filter((item) => item.isSellOrder === false);
+    const listings = orders.filter((item) => item?.isSellOrder === true);
+    const offers = orders.filter((item) => item?.isSellOrder === false);
 
     const listing = listings?.[0];
     const offer = offers?.[0];

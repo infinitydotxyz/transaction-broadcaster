@@ -34,18 +34,14 @@ export class TxBundlerPool implements TxPool<BundleItem> {
     for (const transferId of transferIds) {
       this.transferIdToBundleId.set(transferId, bundleItem.id);
     }
-    console.log(`added bundle type ${bundleType} for id: ${bundleItem.id} Size: ${this.idToBundleType.size}`);
   }
 
   remove(id: string): void {
-    console.log('remove', id);
     const bundleType = this.idToBundleType.get(id);
-    console.log(`removed item. bundle type ${bundleType} Size: ${this.idToBundleType.size}`);
     if (bundleType) {
       const bundle = this.bundlePool.get(bundleType);
       const bundleItem = bundle?.get(id);
       bundle?.delete(id);
-      console.log('bundleItem', bundleItem);
       if (bundleItem) {
         const transferIds = this.getTransferIdsFromBundleItem(bundleItem);
         for (const transferId of transferIds) {
@@ -81,9 +77,10 @@ export class TxBundlerPool implements TxPool<BundleItem> {
     return bundleItem;
   }
 
-  async getTransactions(options: { maxGasFeeGwei: number }): Promise<TransactionRequest[]> {
+  async getTransactions(options: { maxGasFeeGwei: number }): Promise<{ txRequests: TransactionRequest[], invalid: BundleItem[]}> {
     const bundleTypes = Array.from(this.bundlePool.entries());
     let txRequests: TransactionRequest[] = [];
+    let invalid: BundleItem[] = [];
     for (const [bundleType, bundle] of bundleTypes) {
       const bundleItemsUnderUnderGasPrice = Array.from(bundle.values()).filter(
         (item) => item.maxGasPriceGwei === undefined || item.maxGasPriceGwei > options.maxGasFeeGwei
@@ -112,11 +109,12 @@ export class TxBundlerPool implements TxPool<BundleItem> {
           bundleItems,
           this.options.minBundleSize[bundleType]
         );
-        // TODO handle invalid bundle items
+
         txRequests = [...txRequests, ...bundleTxRequests];
+        invalid = [...invalid, ...invalidBundleItems];
       }
     }
-    return txRequests;
+    return { txRequests, invalid };
   }
 
   private getTransferIdsFromBundleItem(bundleItem: BundleItem): string[] {

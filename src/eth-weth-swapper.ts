@@ -48,18 +48,20 @@ export class EthWethSwapper {
     const contract = new Contract(this.wethAddress, wethAbi, this.provider);
     const fn = contract.interface.getFunction('deposit');
     const data = contract.interface.encodeFunctionData(fn);
-    const estimate = await this.provider.estimateGas({
+
+    const txRequest: TransactionRequest = {
       to: contract.address,
-      data
-    });
-    const gasLimit = Math.floor(estimate.toNumber() * 1.2);
-    return {
-      to: contract.address,
-      gasLimit: gasLimit,
       data,
       from: this.wallet.address,
       value: BigNumber.from(amountInWei),
       chainId: parseInt(this.chainId)
+    } 
+    
+    const estimate = await this.provider.estimateGas(txRequest);
+    const gasLimit = Math.floor(estimate.toNumber() * 1.2);
+    return {
+      ...txRequest,
+      gasLimit: gasLimit,
     };
   }
 
@@ -67,17 +69,19 @@ export class EthWethSwapper {
     const contract = new Contract(this.wethAddress, wethAbi, this.provider);
     const fn = contract.interface.getFunction('withdraw');
     const data = contract.interface.encodeFunctionData(fn, [amountInWei]);
-    const estimate = await this.provider.estimateGas({
+
+    const txRequest: TransactionRequest = {
       to: contract.address,
-      data
-    });
-    const gasLimit = Math.floor(estimate.toNumber() * 1.2);
-    return {
-      to: contract.address,
-      gasLimit: gasLimit,
       data,
       from: this.wallet.address,
       chainId: parseInt(this.chainId)
+    }
+
+    const estimate = await this.provider.estimateGas(txRequest);
+    const gasLimit = Math.floor(estimate.toNumber() * 1.2);
+    return {
+      ...txRequest,
+      gasLimit: gasLimit
     };
   }
 }

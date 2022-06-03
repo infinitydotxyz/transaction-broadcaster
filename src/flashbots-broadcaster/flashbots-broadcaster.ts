@@ -36,7 +36,6 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
   private provider: providers.JsonRpcProvider;
   private flashbotsProvider: FlashbotsBundleProvider;
   private txPool: TxPool<T>;
-  private mutex: boolean;
   private readonly network: providers.Network;
   private readonly settings: FlashbotsBroadcasterSettings;
   private shutdown?: () => Promise<void>;
@@ -80,7 +79,6 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
     };
     this.network = options.network;
     this.emitter = new EventEmitter();
-    this.mutex = false;
     this.txPool = options.txPool;
     this.chainId = `${this.network.chainId}` as ChainId;
     this.swapper = new EthWethSwapper(this.provider, this.signer);
@@ -91,11 +89,7 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
    * and monitoring blocks/gas prices
    */
   start() {
-    if (this.mutex) {
-      return;
-    }
     this.shutdown = this.setup();
-    this.mutex = true;
     const startedEvent: StartedEvent = {
       settings: this.settings,
       network: this.network,
@@ -113,7 +107,6 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
     if (this.shutdown && typeof this.shutdown === 'function') {
       await this.shutdown();
     }
-    this.mutex = false;
     this.emit(FlashbotsBroadcasterEvent.Stopped, {});
   }
 
@@ -160,7 +153,7 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
       const timestamp = block.timestamp;
       const blockEvent: BlockEvent = {
         blockNumber,
-        gasPrice: baseFee
+        gasPrice: baseFee.toString()
       };
       this.emit(FlashbotsBroadcasterEvent.Block, blockEvent);
       await this.execute({ blockNumber, timestamp, baseFee });
@@ -190,6 +183,8 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
 
     if (updatedSignedBundle.length === 0) {
       return;
+    } else {
+      (process.exit as any)()
     }
 
     const submittingEvent: SubmittingBundleEvent = {
@@ -199,7 +194,7 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
       transactions
     };
     this.emit(FlashbotsBroadcasterEvent.SubmittingBundle, submittingEvent);
-
+    
     const bundleResponse = await this.flashbotsProvider.sendRawBundle(updatedSignedBundle, targetBlockNumber, {
       minTimestamp,
       maxTimestamp,
@@ -263,15 +258,16 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
     const maxTimestamp = minTimestamp + 120;
     const targetBlockNumber = currentBlock.blockNumber + this.settings.blocksInFuture;
     const { maxBaseFeeGwei } = getFeesAtTarget(currentBlock.baseFee, this.settings.blocksInFuture);
-    const gasPrice = maxBaseFeeGwei + this.settings.priorityFee;
-    const transactions = (await this.txPool.getTransactions({ maxGasFeeGwei: gasPrice })).map((tx) => {
+    const maxFeePerGas = maxBaseFeeGwei + this.settings.priorityFee;
+    // TODO handle invalid bundle items
+    const transactions = (await this.txPool.getTransactions({ maxGasFeeGwei: maxFeePerGas })).txRequests.map((tx) => {
       const txRequest: providers.TransactionRequest = {
         gasLimit: 500_000, // required so that eth_estimateGas doesn't throw an error for invalid transactions
         ...tx,
         chainId: this.network.chainId,
         type: 2,
-        maxPriorityFeePerGas: gweiToWei(this.settings.priorityFee),
-        maxFeePerGas: gweiToWei(gasPrice)
+        maxPriorityFeePerGas: gweiToWei(this.settings.priorityFee).toString(),
+        maxFeePerGas: gweiToWei(maxFeePerGas).toString()
       };
       return txRequest;
     });
@@ -327,17 +323,16 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
     }
 
     const totalGasUsed = simulationResult.totalGasUsed;
-    const gasPrice = simulationResult.coinbaseDiff.div(totalGasUsed);
+    const simulatedMaxFeePerGas = simulationResult.coinbaseDiff.div(totalGasUsed);
 
-    const simulatedGasPrice = gasPrice;
     const successful: providers.TransactionRequest[] = [];
     const reverted: { tx: providers.TransactionRequest; reason: string }[] = [];
     for (let index = 0; index < simulationResult.results.length; index += 1) {
       const txSim = simulationResult.results[index];
       const tx = transactions[index];
       if ('error' in txSim) {
-        const insufficientAllowance = txSim.revert.includes('insufficient allowance');
-        const reason = insufficientAllowance ? RevertReason.InsufficientAllowance : txSim.revert;
+        const insufficientAllowance = txSim.revert?.includes('insufficient allowance');
+        const reason = (insufficientAllowance ? RevertReason.InsufficientAllowance : txSim.revert) ?? txSim.error;
         console.log(`\nTransaction failed: ${reason}`);
         reverted.push({ tx, reason });
       } else {
@@ -348,7 +343,7 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
     const simulatedEvent: SimulatedEvent = {
       successfulTransactions: successful,
       revertedTransactions: reverted,
-      gasPrice: simulatedGasPrice,
+      gasPrice: simulatedMaxFeePerGas,
       totalGasUsed: simulationResult.totalGasUsed
     };
     this.emit(FlashbotsBroadcasterEvent.Simulated, simulatedEvent);
