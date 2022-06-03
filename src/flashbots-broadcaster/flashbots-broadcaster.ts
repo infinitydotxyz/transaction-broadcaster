@@ -170,10 +170,10 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
       return;
     }
 
-    const simulationResult = await this.simulateBundle(transactions);
-    if (this.settings.filterSimulationReverts) {
-      transactions = simulationResult.successfulTransactions;
-    }
+    // const simulationResult = await this.simulateBundle(transactions);
+    // if (this.settings.filterSimulationReverts) {
+    //   transactions = simulationResult.successfulTransactions;
+    // }
 
     if (transactions.length === 0) {
       return;
@@ -183,8 +183,6 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
 
     if (updatedSignedBundle.length === 0) {
       return;
-    } else {
-      (process.exit as any)()
     }
 
     const submittingEvent: SubmittingBundleEvent = {
@@ -210,6 +208,8 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
       return;
     }
 
+    const sim = await bundleResponse.simulate();
+    console.log(JSON.stringify(sim, null, 2));
     const bundleResolution = await bundleResponse.wait();
     switch (bundleResolution) {
       case FlashbotsBundleResolution.BundleIncluded: {
@@ -258,16 +258,16 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
     const maxTimestamp = minTimestamp + 120;
     const targetBlockNumber = currentBlock.blockNumber + this.settings.blocksInFuture;
     const { maxBaseFeeGwei } = getFeesAtTarget(currentBlock.baseFee, this.settings.blocksInFuture);
-    const maxFeePerGas = maxBaseFeeGwei + this.settings.priorityFee;
+    const maxFeePerGasGwei = Math.ceil(maxBaseFeeGwei + this.settings.priorityFee);
+    const maxFeePerGas = gweiToWei(maxBaseFeeGwei);
     // TODO handle invalid bundle items
-    const transactions = (await this.txPool.getTransactions({ maxGasFeeGwei: maxFeePerGas })).txRequests.map((tx) => {
+    const transactions = (await this.txPool.getTransactions({ maxGasFeeGwei: maxFeePerGasGwei })).txRequests.map((tx) => {
       const txRequest: providers.TransactionRequest = {
-        gasLimit: 500_000, // required so that eth_estimateGas doesn't throw an error for invalid transactions
         ...tx,
         chainId: this.network.chainId,
         type: 2,
         maxPriorityFeePerGas: gweiToWei(this.settings.priorityFee).toString(),
-        maxFeePerGas: gweiToWei(maxFeePerGas).toString()
+        maxFeePerGas: maxFeePerGas
       };
       return txRequest;
     });
@@ -297,7 +297,6 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
     alreadySwapped = false
   ): Promise<SimulatedEvent> {
     const signedBundle = await this.getSignedBundle(transactions);
-
     const simulationResult = await this.flashbotsProvider.simulate(signedBundle, 'latest');
 
     if ('error' in simulationResult) {
@@ -306,7 +305,8 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
        * and try again
        */
       if (simulationResult.error.code === RelayErrorCode.InsufficientFunds && !alreadySwapped) {
-        console.log(`\n\nInsufficient funds, attempting to swap weth for eth\n\n`);
+        console.log(JSON.stringify(simulationResult, null, 2));
+        console.log(`\n\nInsufficient funds, attempting to swap weth for eth\n\n`); // TODO check this
         const wethBalance = await this.swapper.checkBalance(Token.Weth);
         if (wethBalance.gte(ETHER.div(10))) {
           const transferRequest = await this.swapper.swapWethForEth(wethBalance.toString());
@@ -332,6 +332,7 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
       const tx = transactions[index];
       if ('error' in txSim) {
         const insufficientAllowance = txSim.revert?.includes('insufficient allowance');
+        console.log(JSON.stringify(txSim, null, 2));
         const reason = (insufficientAllowance ? RevertReason.InsufficientAllowance : txSim.revert) ?? txSim.error;
         console.log(`\nTransaction failed: ${reason}`);
         reverted.push({ tx, reason });

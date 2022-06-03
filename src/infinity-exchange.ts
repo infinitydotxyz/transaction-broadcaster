@@ -47,7 +47,6 @@ export class InfinityExchange {
           await Promise.all(
             bundles.map(async (bundle) => {
               try {
-                console.log(`Buy: ${JSON.stringify(bundle.buys)}`);
                 const args = [bundle.sells, bundle.buys, bundle.constructed];
                 const fn = contract.interface.getFunction('matchOrders');
                 const data = contract.interface.encodeFunctionData(fn, args);
@@ -56,18 +55,19 @@ export class InfinityExchange {
                 //   from: signerAddress,
                 //   data
                 // });
-                const estimate = BigNumber.from(300_000); // TODO check if estimate gas works once we can submit a tx successfully
+                const estimate = BigNumber.from(500_000); // TODO check if estimate gas works once we can submit a tx successfully
                 const gasLimit = Math.floor(estimate.toNumber() * 1.2);
                 return {
                   to: contract.address,
                   gasLimit: gasLimit,
                   data,
-                  chainId: parseInt(chainId)
+                  chainId: parseInt(chainId),
+                  type: 2
                 };
               } catch (err: any) {
                 if ('error' in err && 'error' in err.error) {
                   if(err.error.error.code === 3) {
-                    // error types seens so far: 'ERC721 transfer caller is not owner or approved' | 'SafeERC20: low-level call failed'
+                    // error types seen so far: 'ERC721 transfer caller is not owner or approved' | 'SafeERC20: low-level call failed'
                     // TODO check erc721 approval 
                     // TODO why is this failing with 'SafeERC20: low-level call failed'
                     console.log(err.error.error);
