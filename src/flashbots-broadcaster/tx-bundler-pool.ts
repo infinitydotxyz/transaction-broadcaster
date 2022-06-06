@@ -77,7 +77,9 @@ export class TxBundlerPool implements TxPool<BundleItem> {
     return bundleItem;
   }
 
-  async getTransactions(options: { maxGasFeeGwei: number }): Promise<{ txRequests: TransactionRequest[], invalid: BundleItem[]}> {
+  async getTransactions(options: {
+    maxGasFeeGwei: number;
+  }): Promise<{ txRequests: TransactionRequest[]; invalid: BundleItem[] }> {
     const bundleTypes = Array.from(this.bundlePool.entries());
     let txRequests: TransactionRequest[] = [];
     let invalid: BundleItem[] = [];

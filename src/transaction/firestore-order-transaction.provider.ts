@@ -23,7 +23,7 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
       let resolved = false;
       this.db
         .collection(firestoreConstants.ORDER_MATCHES_COLL)
-        .where('status', '==', FirestoreOrderMatchStatus.Active)
+        .where('state.status', '==', FirestoreOrderMatchStatus.Active)
         .onSnapshot((snapshot) => {
           if (!resolved) {
             resolve();
@@ -73,7 +73,7 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
 
   private async handleOrderMatchUpdate(id: string, match: FirestoreOrderMatch): Promise<void> {
     try {
-      if (match.status !== FirestoreOrderMatchStatus.Active) {
+      if (match.state.status !== FirestoreOrderMatchStatus.Active) {
         throw new Error('Order match is not active');
       }
 
@@ -86,10 +86,15 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
     }
   }
 
-  private createBundleItem(id: string, listing: FirestoreOrder, offer: FirestoreOrder, match: FirestoreOrderMatch): BundleItem {
+  private createBundleItem(
+    id: string,
+    listing: FirestoreOrder,
+    offer: FirestoreOrder,
+    match: FirestoreOrderMatch
+  ): BundleItem {
     const chainNfts: ChainNFTs[] = [];
     let numMatches = 0;
-    const collections = Object.values(match.collections);
+    const collections = Object.values(match.matchData.orderItems);
     for (const collection of collections) {
       let collectionNumMatches = 0;
       const tokens = Object.values(collection.tokens);

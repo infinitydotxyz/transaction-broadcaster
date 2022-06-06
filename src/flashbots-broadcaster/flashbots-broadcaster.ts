@@ -192,7 +192,7 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
       transactions
     };
     this.emit(FlashbotsBroadcasterEvent.SubmittingBundle, submittingEvent);
-    
+
     const bundleResponse = await this.flashbotsProvider.sendRawBundle(updatedSignedBundle, targetBlockNumber, {
       minTimestamp,
       maxTimestamp,
@@ -260,16 +260,18 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
     const maxFeePerGasGwei = Math.ceil(maxBaseFeeGwei + this.settings.priorityFee);
     const maxFeePerGas = gweiToWei(maxBaseFeeGwei).mul(4);
     // TODO handle invalid bundle items
-    const transactions = (await this.txPool.getTransactions({ maxGasFeeGwei: maxFeePerGasGwei })).txRequests.map((tx) => {
-      const txRequest: providers.TransactionRequest = {
-        ...tx,
-        chainId: this.network.chainId,
-        type: 2,
-        maxPriorityFeePerGas: gweiToWei(this.settings.priorityFee).toString(),
-        maxFeePerGas: maxFeePerGas
-      };
-      return txRequest;
-    });
+    const transactions = (await this.txPool.getTransactions({ maxGasFeeGwei: maxFeePerGasGwei })).txRequests.map(
+      (tx) => {
+        const txRequest: providers.TransactionRequest = {
+          ...tx,
+          chainId: this.network.chainId,
+          type: 2,
+          maxPriorityFeePerGas: gweiToWei(this.settings.priorityFee).toString(),
+          maxFeePerGas: maxFeePerGas
+        };
+        return txRequest;
+      }
+    );
 
     return {
       transactions,

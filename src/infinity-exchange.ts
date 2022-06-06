@@ -1,5 +1,5 @@
 import { TransactionRequest } from '@ethersproject/abstract-provider';
-import { ChainId, ChainNFTs, ChainOBOrder } from '@infinityxyz/lib/types/core';
+import { ChainId, ChainNFTs, ChainOBOrder, MakerOrder } from '@infinityxyz/lib/types/core';
 import { getExchangeAddress } from '@infinityxyz/lib/utils/orders';
 import { BigNumber, BytesLike, Contract, providers } from 'ethers';
 import { solidityKeccak256, keccak256, defaultAbiCoder } from 'ethers/lib/utils';
@@ -30,7 +30,7 @@ export class InfinityExchange {
       ): Promise<TransactionRequest[]> => {
         const bundles = bundleItems.reduce(
           (
-            acc: { sells: ChainOBOrder[]; buys: ChainOBOrder[]; constructed: ChainOBOrder[] }[],
+            acc: { sells: MakerOrder[]; buys: MakerOrder[]; constructed: ChainNFTs[][] }[],
             bundleItem,
             currentIndex
           ) => {
@@ -38,7 +38,7 @@ export class InfinityExchange {
             const bundle = acc[index] ?? { sells: [], buys: [], constructed: [] };
             bundle.sells.push(bundleItem.sell);
             bundle.buys.push(bundleItem.buy);
-            bundle.constructed.push(bundleItem.constructed);
+            bundle.constructed.push(bundleItem.constructed.nfts);
             acc[index] = bundle;
             return acc;
           },
@@ -48,10 +48,14 @@ export class InfinityExchange {
           await Promise.all(
             bundles.map(async (bundle) => {
               try {
-                const args = [bundle.sells, bundle.buys, bundle.constructed];
+                const args: [MakerOrder[], MakerOrder[], ChainNFTs[][]] = [
+                  bundle.sells,
+                  bundle.buys,
+                  bundle.constructed
+                ];
                 const fn = contract.interface.getFunction('matchOrders');
                 const data = contract.interface.encodeFunctionData(fn, args);
-                // const estimate = await provider.estimateGas({ 
+                // const estimate = await provider.estimateGas({
                 //   to: contract.address,
                 //   from: signerAddress,
                 //   data
@@ -67,9 +71,9 @@ export class InfinityExchange {
                 };
               } catch (err: any) {
                 if ('error' in err && 'error' in err.error) {
-                  if(err.error.error.code === 3) {
+                  if (err.error.error.code === 3) {
                     // error types seen so far: 'ERC721 transfer caller is not owner or approved' | 'SafeERC20: low-level call failed'
-                    // TODO check erc721 approval 
+                    // TODO check erc721 approval
                     // TODO why is this failing with 'SafeERC20: low-level call failed'
                     console.log(err.error.error);
                   } else {
@@ -84,7 +88,9 @@ export class InfinityExchange {
           )
         ).filter((item) => !!item) as TransactionRequest[];
 
-        const transactionsTooBig = transactionRequests.some((txRequest) => txRequest.gasLimit != null && txRequest.gasLimit > MAX_GAS_LIMIT);
+        const transactionsTooBig = transactionRequests.some(
+          (txRequest) => txRequest.gasLimit != null && txRequest.gasLimit > MAX_GAS_LIMIT
+        );
         if (transactionsTooBig) {
           const estimatedNumBundles = Math.ceil(transactionRequests.length / MAX_GAS_LIMIT);
           const updatedNumBundles = numBundles >= estimatedNumBundles ? numBundles * 2 : estimatedNumBundles;

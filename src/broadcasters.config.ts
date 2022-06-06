@@ -58,12 +58,16 @@ export const infinityExchange = new InfinityExchange(chainIdProviders as Record<
 
 const mainnetSigner = new Wallet(SIGNER_MAINNET, chainIdProviders[ChainId.Mainnet]);
 const goerliSigner = new Wallet(SIGNER_GOERLI, chainIdProviders[ChainId.Goerli]);
-const mainnetEncoder = infinityExchange.getMatchOrdersEncoder(ChainId.Mainnet, mainnetSigner.address).bind(infinityExchange);
-const goerliEncoder = infinityExchange.getMatchOrdersEncoder(ChainId.Goerli, goerliSigner.address).bind(infinityExchange);
+const mainnetEncoder = infinityExchange
+  .getMatchOrdersEncoder(ChainId.Mainnet, mainnetSigner.address)
+  .bind(infinityExchange);
+const goerliEncoder = infinityExchange
+  .getMatchOrdersEncoder(ChainId.Goerli, goerliSigner.address)
+  .bind(infinityExchange);
 
 export const bundleEncoders: Record<SupportedChainId, Record<BundleType, BundleEncoder[BundleType]>> = {
   [ChainId.Mainnet]: {
-      [BundleType.MatchOrders]: mainnetEncoder,
+    [BundleType.MatchOrders]: mainnetEncoder
   },
   [ChainId.Goerli]: {
     [BundleType.MatchOrders]: goerliEncoder

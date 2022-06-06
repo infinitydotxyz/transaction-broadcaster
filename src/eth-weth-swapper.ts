@@ -55,13 +55,13 @@ export class EthWethSwapper {
       from: this.wallet.address,
       value: BigNumber.from(amountInWei),
       chainId: parseInt(this.chainId)
-    } 
-    
+    };
+
     const estimate = await this.provider.estimateGas(txRequest);
     const gasLimit = Math.floor(estimate.toNumber() * 1.2);
     return {
       ...txRequest,
-      gasLimit: gasLimit,
+      gasLimit: gasLimit
     };
   }
 
@@ -75,7 +75,7 @@ export class EthWethSwapper {
       data,
       from: this.wallet.address,
       chainId: parseInt(this.chainId)
-    }
+    };
 
     const estimate = await this.provider.estimateGas(txRequest);
     const gasLimit = Math.floor(estimate.toNumber() * 1.2);
