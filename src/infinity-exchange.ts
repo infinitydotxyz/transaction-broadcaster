@@ -21,7 +21,8 @@ export class InfinityExchange {
     const contract = this.getContract(chainId);
     const provider = this.getProvider(chainId);
     const encoder: MatchOrdersEncoder = async (
-      bundleItems: BundleItem[]
+      bundleItems: BundleItem[],
+      minBundleSize: number // TODO handle min bundle size
     ): Promise<{ txRequests: TransactionRequest[]; invalidBundleItems: BundleItem[] }> => {
       const buildBundles = async (
         bundleItems: MatchOrdersBundle[],

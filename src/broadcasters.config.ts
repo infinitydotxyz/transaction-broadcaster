@@ -21,7 +21,7 @@ const flashbotsOptions: Pick<
   'blocksInFuture' | 'priorityFee' | 'filterSimulationReverts' | 'allowReverts'
 > = {
   blocksInFuture: 2,
-  priorityFee: 20,
+  priorityFee: 4,
   filterSimulationReverts: true,
   allowReverts: false
 };

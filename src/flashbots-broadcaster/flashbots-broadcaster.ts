@@ -207,7 +207,6 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
       this.emit(FlashbotsBroadcasterEvent.RelayError, relayError);
       return;
     }
-
     const sim = await bundleResponse.simulate();
     console.log(JSON.stringify(sim, null, 2));
     const bundleResolution = await bundleResponse.wait();
@@ -259,7 +258,7 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
     const targetBlockNumber = currentBlock.blockNumber + this.settings.blocksInFuture;
     const { maxBaseFeeGwei } = getFeesAtTarget(currentBlock.baseFee, this.settings.blocksInFuture);
     const maxFeePerGasGwei = Math.ceil(maxBaseFeeGwei + this.settings.priorityFee);
-    const maxFeePerGas = gweiToWei(maxBaseFeeGwei);
+    const maxFeePerGas = gweiToWei(maxBaseFeeGwei).mul(4);
     // TODO handle invalid bundle items
     const transactions = (await this.txPool.getTransactions({ maxGasFeeGwei: maxFeePerGasGwei })).txRequests.map((tx) => {
       const txRequest: providers.TransactionRequest = {

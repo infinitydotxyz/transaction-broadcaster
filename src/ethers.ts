@@ -1,5 +1,5 @@
 import { ChainId } from '@infinityxyz/lib/types/core/ChainId';
-import ethers, { providers } from 'ethers';
+import { providers, utils } from 'ethers';
 import { getEnvVariable, SupportedTokenStandard, tokenStandardByTransferTopic } from './constants';
 
 const providersByChainId: Map<ChainId, providers.JsonRpcProvider> = new Map();
@@ -41,7 +41,7 @@ export function decodeTransfer(log: providers.Log) {
   const tokenStandard = tokenStandardByTransferTopic[topic];
   switch (tokenStandard) {
     case SupportedTokenStandard.ERC721: {
-      const [from, to, tokenId] = ethers.utils.defaultAbiCoder.decode(['address', 'address', 'uint256'], data);
+      const [from, to, tokenId] = utils.defaultAbiCoder.decode(['address', 'address', 'uint256'], data);
       return [
         {
           address: log.address.toLowerCase(),
