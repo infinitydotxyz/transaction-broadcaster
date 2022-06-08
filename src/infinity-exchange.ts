@@ -227,7 +227,7 @@ export class InfinityExchange {
                 }
               }
             }
-          }
+          } 
           return { bundleItem, isValid: true };
         } catch (err) {
           console.error(err);
@@ -343,35 +343,6 @@ export class InfinityExchange {
       { validBundleItems: [], invalidBundleItems: [] }
     );
   }
-
-  // private async checkErc721Approval(
-  //   bundleItem: BundleItem,
-  //   chainId: ChainId,
-  //   operator: string
-  // ): Promise<{ isApproved: true } | { isApproved: false; collection: string; tokenId: string }> {
-  //   const erc721Owners = [];
-  //   switch (bundleItem.bundleType) {
-  //     case BundleType.MatchOrders: {
-  //       const owner = bundleItem.sell.signer;
-  //       const nfts = bundleItem.sell.nfts;
-  //       erc721Owners.push({ owner, nfts });
-  //       break;
-  //     }
-  //     default:
-  //       throw new Error(`Bundle type ${bundleItem.bundleType} not yet supported`);
-  //   }
-
-  //   for (const { owner, nfts } of erc721Owners) {
-  //     for (const { collection, tokens } of nfts) {
-  //       const erc721Contract = new ethers.Contract(collection, erc721Abi, this.getProvider(chainId));
-  //       const isApproved = await erc721Contract.isApprovedForAll(owner, operator);
-  //       if (!isApproved) {
-  //         return { isApproved: false, collection, tokenId: tokens[0].tokenId };
-  //       }
-  //     }
-  //   }
-  //   return { isApproved: true };
-  // }
 
   private matchOrdersCallDataEncoder: BundleCallDataEncoder<MatchOrdersArgs> = (
     args: MatchOrdersArgs,
