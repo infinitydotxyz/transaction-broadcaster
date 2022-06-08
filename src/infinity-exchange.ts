@@ -1,7 +1,7 @@
 import { TransactionRequest } from '@ethersproject/abstract-provider';
 import { ChainId, ChainNFTs, ChainOBOrder, MakerOrder } from '@infinityxyz/lib/types/core';
 import { getExchangeAddress } from '@infinityxyz/lib/utils/orders';
-import { BigNumber, BytesLike, Contract, providers } from 'ethers';
+import { BytesLike, Contract, providers } from 'ethers';
 import { solidityKeccak256, keccak256, defaultAbiCoder } from 'ethers/lib/utils';
 import { infinityExchangeAbi } from './abi/infinity-exchange.abi';
 import { MAX_GAS_LIMIT } from './constants';
@@ -60,12 +60,11 @@ export class InfinityExchange {
           bundleArgs.map(async (args) => {
             try {
               const data = encodeCallData(args, chainId);
-              // const estimate = await provider.estimateGas({
-              //   to: contract.address,
-              //   from: signerAddress,
-              //   data
-              // });
-              const estimate = BigNumber.from(500_000); // TODO check if estimate gas works once we can submit a tx successfully
+              const estimate = await provider.estimateGas({
+                to: contract.address,
+                from: signerAddress,
+                data
+              });
               const gasLimit = Math.floor(estimate.toNumber() * 1.2);
               return {
                 to: contract.address,
@@ -107,21 +106,19 @@ export class InfinityExchange {
       bundleItems: BundleItem[],
       minBundleSize: number
     ): Promise<{ txRequests: TransactionRequest[]; invalidBundleItems: BundleItem[] }> => {
-      console.log(`Encoding bundle`)
       const { validBundleItems, invalidBundleItems: invalidBundleItemsFromVerify } = await verifyBundleItems(
         bundleItems,
         chainId
       );
-      console.log(`Found: ${validBundleItems.length} valid bundle items and ${invalidBundleItemsFromVerify.length} invalid bundle items`)
 
       // if (validBundleItems.length < minBundleSize) {
       //   return { txRequests: [] as TransactionRequest[], invalidBundleItems: invalidBundleItemsFromVerify };
-      // } // TODO enable this
+      // } // TODO enable min bundle size
 
       // TODO check approval for erc721 and weth
       // TODO check erc721 and weth balances
 
-      const { txRequests, invalidBundleItems: invalidBundleItemsFromBuild } = await buildBundles(validBundleItems, 1); // TODO estimate the number of bundles needed
+      const { txRequests, invalidBundleItems: invalidBundleItemsFromBuild } = await buildBundles(validBundleItems, 1);
 
       return { txRequests, invalidBundleItems: [...invalidBundleItemsFromVerify, ...invalidBundleItemsFromBuild] };
     };
@@ -173,7 +170,6 @@ export class InfinityExchange {
         bundleItems.map(async (item) => {
           const sellOrderHash = this.orderHash(item.sell);
           const buyOrderHash = this.orderHash(item.buy);
-
           return contract.verifyMatchOrders(
             sellOrderHash,
             buyOrderHash,

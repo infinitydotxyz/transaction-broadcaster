@@ -170,10 +170,10 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
       return;
     }
 
-    // const simulationResult = await this.simulateBundle(transactions);
-    // if (this.settings.filterSimulationReverts) {
-    //   transactions = simulationResult.successfulTransactions;
-    // }
+    const simulationResult = await this.simulateBundle(transactions);
+    if (this.settings.filterSimulationReverts) {
+      transactions = simulationResult.successfulTransactions;
+    }
 
     if (transactions.length === 0) {
       return;
@@ -207,8 +207,7 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
       this.emit(FlashbotsBroadcasterEvent.RelayError, relayError);
       return;
     }
-    const sim = await bundleResponse.simulate();
-    console.log(JSON.stringify(sim, null, 2));
+
     const bundleResolution = await bundleResponse.wait();
     switch (bundleResolution) {
       case FlashbotsBundleResolution.BundleIncluded: {
@@ -306,14 +305,12 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
        * and try again
        */
       if (simulationResult.error.code === RelayErrorCode.InsufficientFunds && !alreadySwapped) {
-        console.log(JSON.stringify(simulationResult, null, 2));
-        console.log(`\n\nInsufficient funds, attempting to swap weth for eth\n\n`); // TODO check this
-        const wethBalance = await this.swapper.checkBalance(Token.Weth);
-        if (wethBalance.gte(ETHER.div(10))) {
-          const transferRequest = await this.swapper.swapWethForEth(wethBalance.toString());
-          transactions.unshift(transferRequest);
-          return this.simulateBundle(transactions, true);
-        }
+        // const wethBalance = await this.swapper.checkBalance(Token.Weth); // TODO monitor balance of match executor
+        // if (wethBalance.gte(ETHER.div(10))) {
+        //   const transferRequest = await this.swapper.swapWethForEth(wethBalance.toString());
+        //   transactions.unshift(transferRequest);
+        //   return this.simulateBundle(transactions, true);
+        // }
       }
       const relayError: RelayErrorEvent = {
         message: simulationResult.error.message,
@@ -333,9 +330,7 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
       const tx = transactions[index];
       if ('error' in txSim) {
         const insufficientAllowance = txSim.revert?.includes('insufficient allowance');
-        console.log(JSON.stringify(txSim, null, 2));
         const reason = (insufficientAllowance ? RevertReason.InsufficientAllowance : txSim.revert) ?? txSim.error;
-        console.log(`\nTransaction failed: ${reason}`);
         reverted.push({ tx, reason });
       } else {
         successful.push(tx);

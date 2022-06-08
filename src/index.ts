@@ -75,6 +75,7 @@ function registerBroadcasterListeners(
     if ('reason' in event) {
       console.error(event.reason);
     } else {
+      console.log(JSON.stringify(event, null, 2));
       try {
         const bundleItems = event.transfers
           .map((transfer) => broadcaster.getBundleItemFromTransfer(transfer))
