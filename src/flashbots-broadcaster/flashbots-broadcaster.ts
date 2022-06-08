@@ -256,7 +256,8 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
     const targetBlockNumber = currentBlock.blockNumber + this.settings.blocksInFuture;
     const { maxBaseFeeGwei } = getFeesAtTarget(currentBlock.baseFee, this.settings.blocksInFuture);
     const maxFeePerGasGwei = Math.ceil(maxBaseFeeGwei + this.settings.priorityFee);
-    const maxFeePerGas = gweiToWei(maxBaseFeeGwei).mul(4);
+    const maxFeePerGas = gweiToWei(maxBaseFeeGwei);
+    
     // TODO handle invalid bundle items
     const transactions = (await this.txPool.getTransactions({ maxGasFeeGwei: maxFeePerGasGwei })).txRequests.map(
       (tx) => {
@@ -265,7 +266,7 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
           chainId: this.network.chainId,
           type: 2,
           maxPriorityFeePerGas: gweiToWei(this.settings.priorityFee).toString(),
-          maxFeePerGas: maxFeePerGas
+          maxFeePerGas
         };
         return txRequest;
       }
