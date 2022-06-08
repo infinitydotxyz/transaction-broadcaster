@@ -1,4 +1,5 @@
 import { TransactionRequest } from '@ethersproject/abstract-provider';
+import { BigNumber } from '@ethersproject/bignumber/lib/bignumber';
 import { ChainId, FirestoreOrderMatchMethod } from '@infinityxyz/lib/types/core';
 import { ChainNFTs, ChainOBOrder, MakerOrder } from '@infinityxyz/lib/types/core/OBOrder';
 
@@ -42,10 +43,12 @@ export interface MatchOrdersBundleItem extends BaseBundleItem {
 
 export type BundleItem = MatchOrdersBundleItem;
 
+export type BundleItemWithCurrentPrice = BundleItem & {currentPrice: BigNumber};
+
 export type BundleVerifier<T> = (
   bundleItems: T[],
   chainId: ChainId
-) => Promise<{ validBundleItems: T[]; invalidBundleItems: T[] }>;
+) => Promise<{ validBundleItems: (T & { currentPrice: BigNumber })[]; invalidBundleItems: T[] }>;
 export type BundleCallDataEncoder<Args extends Array<unknown>> = (args: Args, chainId: ChainId) => string;
 export type BundleItemsToArgsTransformer<BundleItem, Args extends Array<unknown>> = (
   bundleItems: BundleItem[],

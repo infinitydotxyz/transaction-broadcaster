@@ -149,7 +149,7 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
       exchangeAddress: getExchangeAddress(listing.chainId),
       sell: listing.signedOrder,
       buy: offer.signedOrder,
-      buyOrderHash: offer.id,
+      buyOrderHash: offer.id, // TODO use correct hashes
       sellOrderHash: listing.id,
       constructed
     };
