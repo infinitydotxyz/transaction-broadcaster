@@ -2,14 +2,12 @@ import { TransactionRequest } from '@ethersproject/abstract-provider';
 import {
   ChainId,
   ChainNFTs,
-  ChainOBOrder,
   FirestoreOrderMatchErrorCode,
   MakerOrder,
   OrderMatchStateError
 } from '@infinityxyz/lib/types/core';
 import { getExchangeAddress, getTxnCurrencyAddress } from '@infinityxyz/lib/utils/orders';
-import { BigNumber, BigNumberish, BytesLike, Contract, ethers, providers } from 'ethers';
-import { solidityKeccak256, keccak256, defaultAbiCoder } from 'ethers/lib/utils';
+import { BigNumber, BigNumberish, Contract, ethers, providers } from 'ethers';
 import { erc20Abi } from './abi/erc20.abi';
 import { erc721Abi } from './abi/erc721.abi';
 import { infinityExchangeAbi } from './abi/infinity-exchange.abi';
@@ -126,6 +124,7 @@ export class InfinityExchange {
         `Received: ${bundleItems.length} valid bundle items and ${invalidBundleItems.length} invalid bundle items`
       );
 
+      // TODO it would be more scalable to call an external service to check bundle item validity
       const { validBundleItems: validBundleItemsAfterVerification, invalidBundleItems: invalidBundleItemsFromVerify } =
         await verifyBundleItems(bundleItems, chainId);
       const invalidBundleItemsFromVerifyWithError = invalidBundleItemsFromVerify.map((invalidItem) => {
@@ -201,7 +200,7 @@ export class InfinityExchange {
             const allowance: BigNumberish = await contract.allowance(buyer, operator);
             let expectedCost = bundleItem.currentPrice.mul(11).div(10); // 10% buffer
             if(currency === weth) {
-              // TODO include expected gas price
+              // TODO estimate gas price and add it here
               expectedCost = expectedCost.add(0);
             }
 
@@ -386,11 +385,9 @@ export class InfinityExchange {
       const contract = this.getContract(chainId);
       const results = await Promise.allSettled(
         bundleItems.map(async (item) => {
-          const sellOrderHash = this.orderHash(item.sell);
-          const buyOrderHash = this.orderHash(item.buy);
           return contract.verifyMatchOrders(
-            sellOrderHash,
-            buyOrderHash,
+            item.sellOrderHash,
+            item.buyOrderHash,
             item.sell,
             item.buy,
             item.constructed.nfts
@@ -449,75 +446,5 @@ export class InfinityExchange {
       throw new Error(`No exchange address for chainId: ${chainId}`);
     }
     return exchangeAddress;
-  }
-
-  orderHash(order: ChainOBOrder): BytesLike {
-    const fnSign =
-      'Order(bool isSellOrder,address signer,uint256[] constraints,OrderItem[] nfts,address[] execParams,bytes extraParams)OrderItem(address collection,TokenInfo[] tokens)TokenInfo(uint256 tokenId,uint256 numTokens)';
-    const orderTypeHash = solidityKeccak256(['string'], [fnSign]);
-
-    const constraints = order.constraints;
-    const execParams = order.execParams;
-    const extraParams = order.extraParams;
-
-    const constraintsHash = keccak256(
-      defaultAbiCoder.encode(['uint256', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256'], constraints)
-    );
-
-    const nftsHash = this.getNftsHash(order.nfts);
-    const execParamsHash = keccak256(defaultAbiCoder.encode(['address', 'address'], execParams));
-
-    const calcEncode = defaultAbiCoder.encode(
-      ['bytes32', 'bool', 'address', 'bytes32', 'bytes32', 'bytes32', 'bytes32'],
-      [
-        orderTypeHash,
-        order.isSellOrder,
-        order.signer,
-        constraintsHash,
-        nftsHash,
-        execParamsHash,
-        keccak256(extraParams)
-      ]
-    );
-
-    const orderHash = keccak256(calcEncode);
-    return orderHash;
-  }
-
-  private getNftsHash(nfts: ChainNFTs[]): BytesLike {
-    const fnSign = 'OrderItem(address collection,TokenInfo[] tokens)TokenInfo(uint256 tokenId,uint256 numTokens)';
-    const typeHash = solidityKeccak256(['string'], [fnSign]);
-
-    const hashes = [];
-    for (const nft of nfts) {
-      const hash = keccak256(
-        defaultAbiCoder.encode(
-          ['bytes32', 'uint256', 'bytes32'],
-          [typeHash, nft.collection, this.getTokensHash(nft.tokens)]
-        )
-      );
-      hashes.push(hash);
-    }
-    const encodeTypeArray = hashes.map(() => 'bytes32');
-    const nftsHash = keccak256(defaultAbiCoder.encode(encodeTypeArray, hashes));
-
-    return nftsHash;
-  }
-
-  private getTokensHash(tokens: ChainNFTs['tokens']): BytesLike {
-    const fnSign = 'TokenInfo(uint256 tokenId,uint256 numTokens)';
-    const typeHash = solidityKeccak256(['string'], [fnSign]);
-
-    const hashes = [];
-    for (const token of tokens) {
-      const hash = keccak256(
-        defaultAbiCoder.encode(['bytes32', 'uint256', 'uint256'], [typeHash, token.tokenId, token.numTokens])
-      );
-      hashes.push(hash);
-    }
-    const encodeTypeArray = hashes.map(() => 'bytes32');
-    const tokensHash = keccak256(defaultAbiCoder.encode(encodeTypeArray, hashes));
-
-    return tokensHash;
   }
 }

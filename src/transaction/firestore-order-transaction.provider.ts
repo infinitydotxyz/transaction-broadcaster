@@ -12,6 +12,7 @@ import { TransactionProviderEvent } from './transaction.provider.interface';
 import { getExchangeAddress } from '@infinityxyz/lib/utils/orders';
 import { BundleItem, BundleType } from '../flashbots-broadcaster/bundle.types';
 import { BigNumber } from 'ethers';
+import { orderHash } from '../utils';
 
 export class FirestoreOrderTransactionProvider extends TransactionProvider {
   constructor(private db: FirebaseFirestore.Firestore) {
@@ -149,8 +150,8 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
       exchangeAddress: getExchangeAddress(listing.chainId),
       sell: listing.signedOrder,
       buy: offer.signedOrder,
-      buyOrderHash: offer.id, // TODO use correct hashes
-      sellOrderHash: listing.id,
+      buyOrderHash: orderHash(offer.signedOrder),
+      sellOrderHash: orderHash(listing.signedOrder),
       constructed
     };
     return bundle;
