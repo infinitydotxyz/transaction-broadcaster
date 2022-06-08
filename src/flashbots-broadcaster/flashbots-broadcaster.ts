@@ -26,8 +26,7 @@ import {
 } from './flashbots-broadcaster-options.types';
 import { decodeTransfer } from '../ethers';
 import { ChainId } from '@infinityxyz/lib/types/core';
-import { EthWethSwapper, Token } from '../eth-weth-swapper';
-import { ETHER } from '../constants';
+import { EthWethSwapper } from '../eth-weth-swapper';
 
 export class FlashbotsBroadcaster<T extends { id: string }> {
   public readonly chainId: ChainId;
