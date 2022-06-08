@@ -32,7 +32,7 @@
   },
   "dependencies": {
     "@flashbots/ethers-provider-bundle": "^0.4.3",
-    "@infinityxyz/lib": "^1.80.0",
+    "@infinityxyz/lib": "^1.81.0",
     "@uniswap/sdk-core": "^3.0.1",
     "@uniswap/v3-sdk": "^3.8.2",
     "dotenv": "^16.0.1",

@@ -1,10 +1,18 @@
 import { TransactionRequest } from '@ethersproject/abstract-provider';
-import { ChainId } from '@infinityxyz/lib/types/core';
-import { ChainOBOrder } from '@infinityxyz/lib/types/core/OBOrder';
+import { ChainId, FirestoreOrderMatchMethod } from '@infinityxyz/lib/types/core';
+import { ChainNFTs, ChainOBOrder, MakerOrder } from '@infinityxyz/lib/types/core/OBOrder';
 
 export enum BundleType {
   MatchOrders = 'matchOrders'
+  // MatchOrdersOneToOne = 'matchOrdersOneToOne', // TODO add support for one to one
+  // MatchOrdersOneToMany =  'matchOrdersOneToMany' // TODO add support for one to many
 }
+
+export const orderMatchMethodToBundleType = {
+  [FirestoreOrderMatchMethod.MatchOrders]: BundleType.MatchOrders
+  // [FirestoreOrderMatchMethod.MatchOneToOneOrders]: BundleType.MatchOrdersOneToOne,
+  // [FirestoreOrderMatchMethod.MatchOneToManyOrders]: BundleType.MatchOrdersOneToMany
+};
 
 export interface BaseBundleItem {
   id: string;
@@ -13,7 +21,7 @@ export interface BaseBundleItem {
   chainId: ChainId;
 }
 
-export interface MatchOrdersBundle extends BaseBundleItem {
+export interface MatchOrdersBundleItem extends BaseBundleItem {
   bundleType: BundleType.MatchOrders;
   exchangeAddress: string;
   sell: ChainOBOrder;
@@ -23,12 +31,33 @@ export interface MatchOrdersBundle extends BaseBundleItem {
   constructed: ChainOBOrder;
 }
 
-export type BundleItem = MatchOrdersBundle;
-export type MatchOrdersEncoder = (
+// export interface MatchOrdersOneToOneBundle extends BaseBundleItem {
+//   bundleType: BundleType.MatchOrdersOneToOne;
+//   exchangeAddress: string;
+//   sell: ChainOBOrder;
+//   buy: ChainOBOrder;
+//   sellOrderHash: string;
+//   buyOrderHash: string;
+// }
+
+export type BundleItem = MatchOrdersBundleItem;
+
+export type BundleVerifier<T> = (
+  bundleItems: T[],
+  chainId: ChainId
+) => Promise<{ validBundleItems: T[]; invalidBundleItems: T[] }>;
+export type BundleCallDataEncoder<Args extends Array<unknown>> = (args: Args, chainId: ChainId) => string;
+export type BundleItemsToArgsTransformer<BundleItem, Args extends Array<unknown>> = (
   bundleItems: BundleItem[],
+  numBundles: number
+) => Args[];
+export type BundleOrdersEncoder<T> = (
+  bundleItems: T[],
   minBundleSize: number
-) => Promise<{ txRequests: TransactionRequest[]; invalidBundleItems: BundleItem[] }>;
+) => Promise<{ txRequests: TransactionRequest[]; invalidBundleItems: T[] }>;
 
 export type BundleEncoder = {
-  [BundleType.MatchOrders]: MatchOrdersEncoder;
+  [BundleType.MatchOrders]: BundleOrdersEncoder<MatchOrdersBundleItem>;
 };
+
+export type MatchOrdersArgs = [MakerOrder[], MakerOrder[], ChainNFTs[][]];

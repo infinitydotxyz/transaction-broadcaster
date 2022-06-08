@@ -13,6 +13,7 @@ type SupportedChainId = ChainId.Mainnet | ChainId.Goerli;
 const txBundlerPoolOptions: TxBundlerPoolOptions = {
   minBundleSize: {
     [BundleType.MatchOrders]: 2
+    // [BundleType.MatchOrdersOneToOne]: 2,
   }
 };
 
@@ -58,19 +59,19 @@ export const infinityExchange = new InfinityExchange(chainIdProviders as Record<
 
 const mainnetSigner = new Wallet(SIGNER_MAINNET, chainIdProviders[ChainId.Mainnet]);
 const goerliSigner = new Wallet(SIGNER_GOERLI, chainIdProviders[ChainId.Goerli]);
-const mainnetEncoder = infinityExchange
-  .getMatchOrdersEncoder(ChainId.Mainnet, mainnetSigner.address)
+const mainnetMatchOrdersEncoder = infinityExchange
+  .getBundleEncoder(BundleType.MatchOrders, ChainId.Mainnet, mainnetSigner.address)
   .bind(infinityExchange);
-const goerliEncoder = infinityExchange
-  .getMatchOrdersEncoder(ChainId.Goerli, goerliSigner.address)
+const goerliMatchOrdersEncoder = infinityExchange
+  .getBundleEncoder(BundleType.MatchOrders, ChainId.Goerli, goerliSigner.address)
   .bind(infinityExchange);
 
 export const bundleEncoders: Record<SupportedChainId, Record<BundleType, BundleEncoder[BundleType]>> = {
   [ChainId.Mainnet]: {
-    [BundleType.MatchOrders]: mainnetEncoder
+    [BundleType.MatchOrders]: mainnetMatchOrdersEncoder
   },
   [ChainId.Goerli]: {
-    [BundleType.MatchOrders]: goerliEncoder
+    [BundleType.MatchOrders]: goerliMatchOrdersEncoder
   }
 };
 
