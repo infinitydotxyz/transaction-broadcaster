@@ -257,7 +257,7 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
     const { maxBaseFeeGwei } = getFeesAtTarget(currentBlock.baseFee, this.settings.blocksInFuture);
     const maxFeePerGasGwei = Math.ceil(maxBaseFeeGwei + this.settings.priorityFee);
     const maxFeePerGas = gweiToWei(maxBaseFeeGwei);
-    
+
     // TODO handle invalid bundle items
     const transactions = (await this.txPool.getTransactions({ maxGasFeeGwei: maxFeePerGasGwei })).txRequests.map(
       (tx) => {

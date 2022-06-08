@@ -43,3 +43,15 @@ export function getFlashbotsEndpoint(network: providers.Network): string | undef
       throw new Error(`Network ${network.chainId} is not supported by flashbots`);
   }
 }
+
+export function getErrorMessage(err: any) {
+  if (err instanceof Error) {
+    return err.message;
+  } else if (typeof err === 'string') {
+    return err;
+  } else if (typeof err === 'object' && 'toString' in err && typeof err.toString === 'function') {
+    return err.toString();
+  } else {
+    return JSON.stringify(err);
+  }
+}
