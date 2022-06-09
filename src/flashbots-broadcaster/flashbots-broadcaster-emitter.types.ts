@@ -66,7 +66,7 @@ export interface SuccessfulBundleSubmission {
   }[];
 
   nftTransfers: NftTransfer[];
-  
+
   erc20Transfers: Erc20Transfer[];
 
   matchOrdersFulfilled: MatchOrderFulfilledEvent[];

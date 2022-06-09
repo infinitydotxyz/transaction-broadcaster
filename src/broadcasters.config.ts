@@ -1,6 +1,6 @@
 import { ChainId } from '@infinityxyz/lib/types/core';
 import { providers, Wallet } from 'ethers';
-import { AUTH_SIGNER_GOERLI, AUTH_SIGNER_MAINNET, SIGNER_GOERLI, SIGNER_MAINNET } from './constants';
+import { AUTH_SIGNER_GOERLI, AUTH_SIGNER_MAINNET, SIGNER_GOERLI, SIGNER_MAINNET } from './utils/constants';
 import { getProvider } from './utils/ethers';
 import { BundleEncoder, BundleItem, BundleType } from './flashbots-broadcaster/bundle.types';
 import { FlashbotsBroadcaster } from './flashbots-broadcaster/flashbots-broadcaster';
@@ -12,7 +12,7 @@ type SupportedChainId = ChainId.Mainnet | ChainId.Goerli;
 
 const txBundlerPoolOptions: TxBundlerPoolOptions = {
   minBundleSize: {
-    [BundleType.MatchOrders]: 1 // TODO increase this 
+    [BundleType.MatchOrders]: 1 // TODO increase this
     // [BundleType.MatchOrdersOneToOne]: 2,
   }
 };

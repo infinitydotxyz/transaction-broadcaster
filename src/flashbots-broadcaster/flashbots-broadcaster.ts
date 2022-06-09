@@ -2,7 +2,7 @@ import { FlashbotsBundleProvider, FlashbotsBundleResolution } from '@flashbots/e
 import { BigNumber, providers, Wallet } from 'ethers';
 import * as EventEmitter from 'events';
 import { TxPool } from './tx-pool.interface';
-import { getFeesAtTarget, getFlashbotsEndpoint, gweiToWei } from '../utils';
+import { getFeesAtTarget, getFlashbotsEndpoint, gweiToWei } from '../utils/general';
 import {
   BlockEvent,
   FlashbotsBroadcasterEvent,
@@ -240,7 +240,7 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
               matchOrdersFulfilled: MatchOrderFulfilledEvent[];
             },
             log
-          ) => {            
+          ) => {
             if ('tokenId' in log) {
               return {
                 ...acc,
@@ -270,7 +270,7 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
           nftTransfers: logsByType.nftTransfers,
           erc20Transfers: logsByType.erc20Transfers,
           matchOrdersFulfilled: logsByType.matchOrdersFulfilled,
-          matchExecutor: this.signer.address.toLowerCase(),
+          matchExecutor: this.signer.address.toLowerCase()
         };
 
         this.emit(FlashbotsBroadcasterEvent.BundleResult, successfulBundleSubmission);

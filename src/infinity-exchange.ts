@@ -11,7 +11,7 @@ import { BigNumber, BigNumberish, Contract, ethers, providers } from 'ethers';
 import { erc20Abi } from './abi/erc20.abi';
 import { erc721Abi } from './abi/erc721.abi';
 import { infinityExchangeAbi } from './abi/infinity-exchange.abi';
-import { MAX_GAS_LIMIT } from './constants';
+import { MAX_GAS_LIMIT } from './utils/constants';
 import {
   BundleCallDataEncoder,
   BundleItem,
@@ -23,7 +23,7 @@ import {
   MatchOrdersArgs,
   MatchOrdersBundleItem
 } from './flashbots-broadcaster/bundle.types';
-import { getErrorMessage } from './utils';
+import { getErrorMessage } from './utils/general';
 
 type InvalidBundleItem = {
   bundleItem: BundleItem | MatchOrdersBundleItem;
@@ -35,7 +35,7 @@ export class InfinityExchange {
   public get exchangeAddresses() {
     return [...this.contracts.values()].map((contract) => contract.address);
   }
-  
+
   constructor(private providers: Record<ChainId, providers.JsonRpcProvider>) {
     this.contracts = new Map();
     for (const [chainId, provider] of Object.entries(providers) as [ChainId, providers.JsonRpcProvider][]) {

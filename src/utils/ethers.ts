@@ -1,9 +1,6 @@
-import { NumberAttribute } from '@infinityxyz/lib/types/core';
 import { ChainId } from '@infinityxyz/lib/types/core/ChainId';
-import { BigNumber, ethers, providers } from 'ethers';
-import { erc721Abi } from '../abi/erc721.abi';
-import { infinityExchangeAbi } from '../abi/infinity-exchange.abi';
-import { getEnvVariable, SupportedTokenStandard, tokenStandardByTransferTopic } from '../constants';
+import { providers } from 'ethers';
+import { getEnvVariable } from './constants';
 
 const providersByChainId: Map<ChainId, providers.JsonRpcProvider> = new Map();
 

@@ -7,8 +7,8 @@ export interface NftTransfer {
 }
 
 export interface Erc20Transfer {
-    currency: string;
-    from: string;
-    to: string;
-    amount: string;
+  currency: string;
+  from: string;
+  to: string;
+  amount: string;
 }

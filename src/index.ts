@@ -6,7 +6,7 @@ import {
 } from '@infinityxyz/lib/types/core';
 import { BigNumber } from 'ethers';
 import { getBroadcasters } from './broadcasters.config';
-import { WEBHOOK_URL } from './constants';
+import { WEBHOOK_URL } from './utils/constants';
 import { relayErrorToEmbed } from './discord/relay-error-to-embed';
 import { sendWebhook } from './discord/webhook';
 import { getDb } from './firestore';
@@ -125,12 +125,14 @@ function registerBroadcasterListeners(
           };
 
           return {
-            id: bundleItem.id, 
+            id: bundleItem.id,
             orderMatchState
-          }
+          };
         });
 
-        await Promise.allSettled(updates.map(({id, orderMatchState: update}) => firestoreProvider.updateOrderMatch(id, update)));
+        await Promise.allSettled(
+          updates.map(({ id, orderMatchState: update }) => firestoreProvider.updateOrderMatch(id, update))
+        );
       } catch (err) {
         console.log(err);
       }

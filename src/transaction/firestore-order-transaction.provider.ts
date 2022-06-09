@@ -13,8 +13,7 @@ import { TransactionProviderEvent } from './transaction.provider.interface';
 import { getExchangeAddress } from '@infinityxyz/lib/utils/orders';
 import { BundleItem, BundleType } from '../flashbots-broadcaster/bundle.types';
 import { BigNumber } from 'ethers';
-import { orderHash } from '../utils';
-import { match } from 'assert';
+import { orderHash } from '../utils/order-hash';
 
 export class FirestoreOrderTransactionProvider extends TransactionProvider {
   constructor(private db: FirebaseFirestore.Firestore) {

@@ -1,5 +1,5 @@
 import { TransactionRequest } from '@ethersproject/abstract-provider';
-import { TokenTransfer } from './flashbots-broadcaster-emitter.types';
+import { NftTransfer } from '../utils/log.types';
 
 export interface TxPool<T extends { id: string }> {
   add(item: T): void;
@@ -8,5 +8,5 @@ export interface TxPool<T extends { id: string }> {
 
   getTransactions(options: { maxGasFeeGwei: number }): Promise<{ txRequests: TransactionRequest[]; invalid?: T[] }>;
 
-  getBundleFromTransfer(transfer: TokenTransfer): T | undefined;
+  getBundleFromTransfer(transfer: NftTransfer): T | undefined;
 }

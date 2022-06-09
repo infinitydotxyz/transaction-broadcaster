@@ -4,7 +4,7 @@ import { BigNumber, providers } from 'ethers/lib/ethers';
 import { erc20Abi } from '../abi/erc20.abi';
 import { erc721Abi } from '../abi/erc721.abi';
 import { infinityExchangeAbi } from '../abi/infinity-exchange.abi';
-import { SupportedTokenStandard, tokenStandardByTransferTopic } from '../constants';
+import { SupportedTokenStandard, tokenStandardByTransferTopic } from './constants';
 import { Erc20Transfer, NftTransfer } from './log.types';
 
 export function decodeNftTransfer(log: providers.Log): NftTransfer[] {
