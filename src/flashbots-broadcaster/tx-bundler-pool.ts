@@ -94,7 +94,9 @@ export class TxBundlerPool implements TxPool<BundleItem> {
        */
       let tokenIds = new Set<string>();
       const nonConflictingBundleItems = bundleItemsUnderUnderGasPrice.filter((bundleItem) => {
-        const ids = this.getOwnerTokenIdsFromBundleItem(bundleItem);
+        // TODO should we limit buyers to one transaction per bundle? 
+        // otherwise we need to check to make sure the buyers have enough currency across multiple orders
+        const ids = this.getOwnerTokenIdsFromBundleItem(bundleItem); 
         for (const id of ids) {
           if (tokenIds.has(id)) {
             return false;
