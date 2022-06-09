@@ -1,6 +1,8 @@
+import { NumberAttribute } from '@infinityxyz/lib/types/core';
 import { ChainId } from '@infinityxyz/lib/types/core/ChainId';
 import { BigNumber, ethers, providers } from 'ethers';
 import { erc721Abi } from './abi/erc721.abi';
+import { infinityExchangeAbi } from './abi/infinity-exchange.abi';
 import { getEnvVariable, SupportedTokenStandard, tokenStandardByTransferTopic } from './constants';
 
 const providersByChainId: Map<ChainId, providers.JsonRpcProvider> = new Map();
@@ -33,38 +35,4 @@ export function getProvider(chainId: ChainId): providers.JsonRpcProvider {
     providersByChainId.set(chainId, provider);
   }
   return provider;
-}
-
-export function decodeTransfer(log: providers.Log): {
-  address: string;
-  from: string;
-  to: string;
-  tokenId: string;
-  amount: number;
-}[] {
-  try {
-    const topics = log.topics;
-    const topic = topics[0];
-    const tokenStandard = tokenStandardByTransferTopic[topic];
-    switch (tokenStandard) {
-      case SupportedTokenStandard.ERC721: {
-        const iface = new ethers.utils.Interface(erc721Abi);
-        const res = iface.parseLog(log);
-        const [from, to, tokenId] = res.args;
-        return [
-          {
-            address: log.address.toLowerCase(),
-            from: from.toLowerCase(),
-            to: to.toLowerCase(),
-            tokenId: BigNumber.isBigNumber(tokenId) ? tokenId.toString() : tokenId,
-            amount: 1
-          }
-        ];
-      }
-      default:
-        return [];
-    }
-  } catch (err) {
-    return [];
-  }
 }

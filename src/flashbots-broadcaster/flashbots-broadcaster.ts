@@ -15,7 +15,6 @@ import {
   StartedEvent,
   SubmittingBundleEvent,
   SuccessfulBundleSubmission,
-  TokenTransfer,
   RevertReason,
   RelayErrorCode
 } from './flashbots-broadcaster-emitter.types';
@@ -24,9 +23,10 @@ import {
   FlashbotsBroadcasterInternalOptions,
   FlashbotsBroadcasterOptions
 } from './flashbots-broadcaster-options.types';
-import { decodeTransfer } from '../ethers';
 import { ChainId } from '@infinityxyz/lib/types/core';
 import { EthWethSwapper } from '../eth-weth-swapper';
+import { decodeErc20Transfer, decodeMatchOrderFulfilled, decodeNftTransfer } from '../utils/log-decoders';
+import { Erc20Transfer, MatchOrderFulfilledEvent, NftTransfer } from '../utils/log.types';
 
 export class FlashbotsBroadcaster<T extends { id: string }> {
   public readonly chainId: ChainId;
@@ -113,7 +113,7 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
     this.txPool.add(item);
   }
 
-  getBundleItemFromTransfer(transfer: TokenTransfer): T | undefined {
+  getBundleItemFromTransfer(transfer: NftTransfer): T | undefined {
     return this.txPool.getBundleFromTransfer(transfer);
   }
 
@@ -224,15 +224,53 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
           return acc.add(curr.receipt.gasUsed);
         }, BigNumber.from(0));
 
-        const transfers = bundleTransactions
+        const logs = bundleTransactions
           .flatMap(({ receipt }) => receipt.logs)
-          .flatMap((log) => decodeTransfer(log));
+          .flatMap((log) => [
+            ...decodeNftTransfer(log),
+            ...decodeErc20Transfer(log),
+            ...decodeMatchOrderFulfilled(log)
+          ]);
+
+        const logsByType = logs.reduce(
+          (
+            acc: {
+              nftTransfers: NftTransfer[];
+              erc20Transfers: Erc20Transfer[];
+              matchOrdersFulfilled: MatchOrderFulfilledEvent[];
+            },
+            log
+          ) => {            
+            if ('tokenId' in log) {
+              return {
+                ...acc,
+                nftTransfers: [...acc.nftTransfers, log]
+              };
+            } else if ('currency' in log) {
+              return {
+                ...acc,
+                erc20Transfers: [...acc.erc20Transfers, log]
+              };
+            } else if ('sellOrderHash' in log) {
+              return {
+                ...acc,
+                matchOrdersFulfilled: [...acc.matchOrdersFulfilled, log]
+              };
+            } else {
+              return acc;
+            }
+          },
+          { nftTransfers: [], erc20Transfers: [], matchOrdersFulfilled: [] }
+        );
 
         const successfulBundleSubmission: SuccessfulBundleSubmission = {
           transactions: bundleTransactions,
           blockNumber: targetBlockNumber,
           totalGasUsed,
-          transfers
+          nftTransfers: logsByType.nftTransfers,
+          erc20Transfers: logsByType.erc20Transfers,
+          matchOrdersFulfilled: logsByType.matchOrdersFulfilled,
+          matchExecutor: this.signer.address.toLowerCase(),
         };
 
         this.emit(FlashbotsBroadcasterEvent.BundleResult, successfulBundleSubmission);

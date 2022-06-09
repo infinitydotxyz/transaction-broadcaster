@@ -1,6 +1,6 @@
 import { TransactionRequest } from '@ethersproject/abstract-provider';
+import { NftTransfer } from '../utils/log.types';
 import { BundleEncoder, BundleItem, BundleType } from './bundle.types';
-import { TokenTransfer } from './flashbots-broadcaster-emitter.types';
 import { TxPool } from './tx-pool.interface';
 
 export interface TxBundlerPoolOptions {
@@ -52,7 +52,7 @@ export class TxBundlerPool implements TxPool<BundleItem> {
     this.idToBundleType.delete(id);
   }
 
-  getBundleFromTransfer(transfer: TokenTransfer): BundleItem | undefined {
+  getBundleFromTransfer(transfer: NftTransfer): BundleItem | undefined {
     const transferId = this.getTransferIdFromTransfer(transfer);
     const bundleId = this.transferIdToBundleId.get(transferId);
     if (!bundleId) {
@@ -128,7 +128,7 @@ export class TxBundlerPool implements TxPool<BundleItem> {
         const tokenId = token.tokenId;
         const from = bundleItem.sell.signer;
         const to = bundleItem.buy.signer;
-        const transfer: TokenTransfer = {
+        const transfer: NftTransfer = {
           address: collection,
           from,
           to,
@@ -159,7 +159,7 @@ export class TxBundlerPool implements TxPool<BundleItem> {
     return [...ids];
   }
 
-  private getTransferIdFromTransfer(transfer: TokenTransfer): string {
+  private getTransferIdFromTransfer(transfer: NftTransfer): string {
     const collection = transfer.address;
     const tokenId = transfer.tokenId;
     const amount = transfer.amount;

@@ -44,18 +44,6 @@ export class InfinityExchange {
     }
   }
 
-  public async getComplicationAddresses(): Promise<string[]> {
-    const complications: string[] = [];
-    for(const contract of this.contracts.values()) {
-      const numComplications = await contract.numComplications();
-      for(let i = 0; i < numComplications; i++) {
-        const complication = await contract.getComplicationAt(i);
-        complications.push(complication.trim().toLowerCase());
-      }
-    }
-    return complications;
-  }
-
   public getBundleEncoder(bundleType: BundleType, chainId: ChainId, signerAddress: string) {
     switch (bundleType) {
       case BundleType.MatchOrders:

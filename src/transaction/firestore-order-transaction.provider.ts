@@ -15,7 +15,7 @@ import { BigNumber } from 'ethers';
 import { orderHash } from '../utils';
 
 export class FirestoreOrderTransactionProvider extends TransactionProvider {
-  constructor(private db: FirebaseFirestore.Firestore, private readonly complicationAddresses: string[]) {
+  constructor(private db: FirebaseFirestore.Firestore) {
     super();
   }
 
@@ -25,7 +25,6 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
       const query = this.db
         .collection(firestoreConstants.ORDER_MATCHES_COLL)
         .where('state.status', '==', FirestoreOrderMatchStatus.Active)
-        .where('complicationAddress', 'in', this.complicationAddresses);
       query.onSnapshot(
         (snapshot) => {
           if (!resolved) {

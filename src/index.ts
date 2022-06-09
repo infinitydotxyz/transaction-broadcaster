@@ -11,10 +11,8 @@ import { TransactionProviderEvent } from './transaction/transaction.provider.int
 
 async function main() {
   const db = getDb();
-  const { chainIdBroadcasters, infinityExchange } = await getBroadcasters();
-  // TODO should this get updated over time?
-  const complicationAddresses = await infinityExchange.getComplicationAddresses(); 
-  const firestoreProvider = new FirestoreOrderTransactionProvider(db, complicationAddresses);
+  const { chainIdBroadcasters } = await getBroadcasters();
+  const firestoreProvider = new FirestoreOrderTransactionProvider(db);
 
   for (const broadcaster of Object.values(chainIdBroadcasters)) {
     registerBroadcasterListeners(broadcaster, firestoreProvider);
@@ -79,9 +77,10 @@ function registerBroadcasterListeners(
     } else {
       console.log(JSON.stringify(event, null, 2));
       try {
-        const bundleItems = event.transfers
+        const bundleItems = event.nftTransfers
           .map((transfer) => broadcaster.getBundleItemFromTransfer(transfer))
           .filter((bundleItem) => !!bundleItem) as BundleItem[];
+
         // TODO how do we handle bundleItems that were skipped?
         // bundle items should only be skipped if the orders are no longer valid
         // we should make the validate function on the contract an `external view` function
@@ -89,6 +88,7 @@ function registerBroadcasterListeners(
         // we also need to make sure that orders within the bundle aren't conflicting
         // we should not attempt to transfer the same tokens from one owner more than once
         const ids = [...new Set(bundleItems.map((item) => item.id))];
+
         await Promise.all(ids.map((id) => firestoreProvider.transactionCompleted(id)));
       } catch (err) {
         console.log(err);

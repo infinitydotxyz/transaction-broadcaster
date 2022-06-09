@@ -1,5 +1,6 @@
 import { FlashbotsBundleResolution } from '@flashbots/ethers-provider-bundle';
 import { BigNumber, BigNumberish, providers } from 'ethers/lib/ethers';
+import { Erc20Transfer, MatchOrderFulfilledEvent, NftTransfer } from '../utils/log.types';
 import { FlashbotsBroadcasterSettings } from './flashbots-broadcaster-options.types';
 
 export enum FlashbotsBroadcasterEvent {
@@ -56,14 +57,6 @@ export interface SubmittingBundleEvent {
   transactions: providers.TransactionRequest[];
 }
 
-export interface TokenTransfer {
-  address: string;
-  from: string;
-  to: string;
-  tokenId: string;
-  amount: number;
-}
-
 export interface SuccessfulBundleSubmission {
   transactions: {
     receipt: providers.TransactionReceipt;
@@ -71,11 +64,17 @@ export interface SuccessfulBundleSubmission {
     successful: boolean;
   }[];
 
-  transfers: TokenTransfer[];
+  nftTransfers: NftTransfer[];
+  
+  erc20Transfers: Erc20Transfer[];
+
+  matchOrdersFulfilled: MatchOrderFulfilledEvent[];
 
   blockNumber: number;
 
   totalGasUsed: BigNumber;
+
+  matchExecutor: string;
 }
 
 export enum FailedBundleSubmissionReason {
