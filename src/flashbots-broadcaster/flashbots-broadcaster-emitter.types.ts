@@ -1,6 +1,7 @@
 import { FlashbotsBundleResolution } from '@flashbots/ethers-provider-bundle';
+import { MatchOrderFulfilledEvent } from '@infinityxyz/lib/types/core';
 import { BigNumber, BigNumberish, providers } from 'ethers/lib/ethers';
-import { Erc20Transfer, MatchOrderFulfilledEvent, NftTransfer } from '../utils/log.types';
+import { Erc20Transfer, NftTransfer } from '../utils/log.types';
 import { FlashbotsBroadcasterSettings } from './flashbots-broadcaster-options.types';
 
 export enum FlashbotsBroadcasterEvent {

@@ -1,10 +1,11 @@
+import { MatchOrderFulfilledEvent } from '@infinityxyz/lib/types/core';
 import { ethers } from 'ethers';
 import { BigNumber, providers } from 'ethers/lib/ethers';
 import { erc20Abi } from '../abi/erc20.abi';
 import { erc721Abi } from '../abi/erc721.abi';
 import { infinityExchangeAbi } from '../abi/infinity-exchange.abi';
 import { SupportedTokenStandard, tokenStandardByTransferTopic } from '../constants';
-import { Erc20Transfer, MatchOrderFulfilledEvent, NftTransfer } from './log.types';
+import { Erc20Transfer, NftTransfer } from './log.types';
 
 export function decodeNftTransfer(log: providers.Log): NftTransfer[] {
   try {
@@ -57,16 +58,20 @@ export function decodeMatchOrderFulfilled(log: providers.Log): MatchOrderFulfill
   try {
     const iface = new ethers.utils.Interface(infinityExchangeAbi);
     const res = iface.parseLog(log);
-    const [sellOrderHash, buyOrderHash, buyer, seller, complication, amountBigNumberish] = res.args;
+    const [sellOrderHash, buyOrderHash, seller, buyer, complication, currency, amountBigNumberish] = res.args;
     const amount = BigNumber.from(amountBigNumberish).toString();
     return [
       {
-        sellOrderHash,
-        buyOrderHash,
-        buyer,
-        seller,
-        complication,
-        amount
+        exchangeAddress: log.address.toLowerCase(),
+        txHash: log.transactionHash.toLowerCase(),
+        blockNumber: log.blockNumber,
+        sellOrderHash: sellOrderHash.toLowerCase(),
+        buyOrderHash: buyOrderHash.toLowerCase(),
+        buyer: buyer.toLowerCase(),
+        seller: seller.toLowerCase(),
+        complication: complication.toLowerCase(),
+        amount,
+        currencyAddress: currency.toLowerCase()
       }
     ];
   } catch (err) {

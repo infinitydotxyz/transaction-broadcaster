@@ -6,13 +6,15 @@ import {
   ChainOBOrder,
   FirestoreOrder,
   FirestoreOrderMatch,
-  FirestoreOrderMatchStatus
+  FirestoreOrderMatchStatus,
+  OrderMatchState
 } from '@infinityxyz/lib/types/core';
 import { TransactionProviderEvent } from './transaction.provider.interface';
 import { getExchangeAddress } from '@infinityxyz/lib/utils/orders';
 import { BundleItem, BundleType } from '../flashbots-broadcaster/bundle.types';
 import { BigNumber } from 'ethers';
 import { orderHash } from '../utils';
+import { match } from 'assert';
 
 export class FirestoreOrderTransactionProvider extends TransactionProvider {
   constructor(private db: FirebaseFirestore.Firestore) {
@@ -24,7 +26,7 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
       let resolved = false;
       const query = this.db
         .collection(firestoreConstants.ORDER_MATCHES_COLL)
-        .where('state.status', '==', FirestoreOrderMatchStatus.Active)
+        .where('state.status', '==', FirestoreOrderMatchStatus.Active);
       query.onSnapshot(
         (snapshot) => {
           if (!resolved) {
@@ -65,6 +67,11 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
   async orderCompleted(id: string, status: FirestoreOrderMatchStatus): Promise<void> {
     const matchRef = this.db.collection(firestoreConstants.ORDER_MATCHES_COLL).doc(id);
     await matchRef.update({ status });
+  }
+
+  async updateOrderMatch(id: string, state: Partial<OrderMatchState>) {
+    const matchRef = this.db.collection(firestoreConstants.ORDER_MATCHES_COLL).doc(id);
+    await matchRef.set({ state }, { merge: true });
   }
 
   async transactionCompleted(id: string): Promise<void> {

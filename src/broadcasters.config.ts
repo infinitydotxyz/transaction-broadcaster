@@ -1,7 +1,7 @@
 import { ChainId } from '@infinityxyz/lib/types/core';
 import { providers, Wallet } from 'ethers';
 import { AUTH_SIGNER_GOERLI, AUTH_SIGNER_MAINNET, SIGNER_GOERLI, SIGNER_MAINNET } from './constants';
-import { getProvider } from './ethers';
+import { getProvider } from './utils/ethers';
 import { BundleEncoder, BundleItem, BundleType } from './flashbots-broadcaster/bundle.types';
 import { FlashbotsBroadcaster } from './flashbots-broadcaster/flashbots-broadcaster';
 import { FlashbotsBroadcasterOptions } from './flashbots-broadcaster/flashbots-broadcaster-options.types';

@@ -23,10 +23,10 @@ import {
   FlashbotsBroadcasterInternalOptions,
   FlashbotsBroadcasterOptions
 } from './flashbots-broadcaster-options.types';
-import { ChainId } from '@infinityxyz/lib/types/core';
+import { ChainId, MatchOrderFulfilledEvent } from '@infinityxyz/lib/types/core';
 import { EthWethSwapper } from '../eth-weth-swapper';
 import { decodeErc20Transfer, decodeMatchOrderFulfilled, decodeNftTransfer } from '../utils/log-decoders';
-import { Erc20Transfer, MatchOrderFulfilledEvent, NftTransfer } from '../utils/log.types';
+import { Erc20Transfer, NftTransfer } from '../utils/log.types';
 
 export class FlashbotsBroadcaster<T extends { id: string }> {
   public readonly chainId: ChainId;

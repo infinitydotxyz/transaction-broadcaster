@@ -1,4 +1,10 @@
-import { ChainId } from '@infinityxyz/lib/types/core';
+import {
+  ChainId,
+  FirestoreOrderMatchStatus,
+  MatchOrderFulfilledEvent,
+  OrderMatchStateSuccess
+} from '@infinityxyz/lib/types/core';
+import { BigNumber } from 'ethers';
 import { getBroadcasters } from './broadcasters.config';
 import { WEBHOOK_URL } from './constants';
 import { relayErrorToEmbed } from './discord/relay-error-to-embed';
@@ -81,15 +87,50 @@ function registerBroadcasterListeners(
           .map((transfer) => broadcaster.getBundleItemFromTransfer(transfer))
           .filter((bundleItem) => !!bundleItem) as BundleItem[];
 
-        // TODO how do we handle bundleItems that were skipped?
         // bundle items should only be skipped if the orders are no longer valid
         // we should make the validate function on the contract an `external view` function
         // so we can check if each item is valid before submitting all of them together
         // we also need to make sure that orders within the bundle aren't conflicting
         // we should not attempt to transfer the same tokens from one owner more than once
-        const ids = [...new Set(bundleItems.map((item) => item.id))];
 
-        await Promise.all(ids.map((id) => firestoreProvider.transactionCompleted(id)));
+        const matchOrdersFulfilledByBuyOrderHash = event.matchOrdersFulfilled.reduce(
+          (acc: { [buyOrderHash: string]: MatchOrderFulfilledEvent[] }, order) => {
+            const orderHash: string = order.buyOrderHash.toLowerCase();
+            const ordersFulfilled = acc[orderHash] ?? [];
+            return { ...acc, [orderHash]: [...ordersFulfilled, order] };
+          },
+          {}
+        );
+
+        const updates = bundleItems.map((bundleItem) => {
+          const matchOrderEvents = matchOrdersFulfilledByBuyOrderHash[bundleItem.buyOrderHash.toLowerCase()];
+          const firstMatchOrderEvent = matchOrderEvents?.[0];
+          const txHash = firstMatchOrderEvent?.txHash ?? '';
+          const amount = matchOrderEvents.reduce(
+            (sum: BigNumber, order: MatchOrderFulfilledEvent) => sum.add(BigNumber.from(order.amount)),
+            BigNumber.from(0)
+          );
+          if (!txHash) {
+            console.error(`No txHash for ${bundleItem.buyOrderHash}`);
+          }
+          const orderMatchState: Pick<
+            OrderMatchStateSuccess,
+            'status' | 'txHash' | 'currency' | 'amount' | 'ordersFulfilled'
+          > = {
+            status: FirestoreOrderMatchStatus.Matched,
+            txHash: txHash,
+            currency: firstMatchOrderEvent?.currencyAddress ?? '',
+            amount: amount.toString(),
+            ordersFulfilled: matchOrderEvents
+          };
+
+          return {
+            id: bundleItem.id, 
+            orderMatchState
+          }
+        });
+
+        await Promise.allSettled(updates.map(({id, orderMatchState: update}) => firestoreProvider.updateOrderMatch(id, update)));
       } catch (err) {
         console.log(err);
       }
