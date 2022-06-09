@@ -43,7 +43,7 @@ export interface MatchOrdersBundleItem extends BaseBundleItem {
 
 export type BundleItem = MatchOrdersBundleItem;
 
-export type BundleItemWithCurrentPrice = BundleItem & {currentPrice: BigNumber};
+export type BundleItemWithCurrentPrice = BundleItem & { currentPrice: BigNumber };
 
 export type BundleVerifier<T> = (
   bundleItems: T[],

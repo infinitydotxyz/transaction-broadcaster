@@ -58,8 +58,6 @@ export function getErrorMessage(err: any) {
   }
 }
 
-
-
 export function orderHash(order: ChainOBOrder): string {
   const fnSign =
     'Order(bool isSellOrder,address signer,uint256[] constraints,OrderItem[] nfts,address[] execParams,bytes extraParams)OrderItem(address collection,TokenInfo[] tokens)TokenInfo(uint256 tokenId,uint256 numTokens)';
@@ -78,15 +76,7 @@ export function orderHash(order: ChainOBOrder): string {
 
   const calcEncode = defaultAbiCoder.encode(
     ['bytes32', 'bool', 'address', 'bytes32', 'bytes32', 'bytes32', 'bytes32'],
-    [
-      orderTypeHash,
-      order.isSellOrder,
-      order.signer,
-      constraintsHash,
-      nftsHash,
-      execParamsHash,
-      keccak256(extraParams)
-    ]
+    [orderTypeHash, order.isSellOrder, order.signer, constraintsHash, nftsHash, execParamsHash, keccak256(extraParams)]
   );
 
   const orderHash = keccak256(calcEncode);
@@ -100,10 +90,7 @@ function getNftsHash(nfts: ChainNFTs[]): BytesLike {
   const hashes = [];
   for (const nft of nfts) {
     const hash = keccak256(
-      defaultAbiCoder.encode(
-        ['bytes32', 'uint256', 'bytes32'],
-        [typeHash, nft.collection, getTokensHash(nft.tokens)]
-      )
+      defaultAbiCoder.encode(['bytes32', 'uint256', 'bytes32'], [typeHash, nft.collection, getTokensHash(nft.tokens)])
     );
     hashes.push(hash);
   }

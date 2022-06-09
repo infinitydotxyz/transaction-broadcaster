@@ -11,8 +11,10 @@ import { TransactionProviderEvent } from './transaction/transaction.provider.int
 
 async function main() {
   const db = getDb();
-  const firestoreProvider = new FirestoreOrderTransactionProvider(db);
-  const chainIdBroadcasters = await getBroadcasters();
+  const { chainIdBroadcasters, infinityExchange } = await getBroadcasters();
+  // TODO should this get updated over time?
+  const complicationAddresses = await infinityExchange.getComplicationAddresses(); 
+  const firestoreProvider = new FirestoreOrderTransactionProvider(db, complicationAddresses);
 
   for (const broadcaster of Object.values(chainIdBroadcasters)) {
     registerBroadcasterListeners(broadcaster, firestoreProvider);

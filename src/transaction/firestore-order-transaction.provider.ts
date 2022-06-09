@@ -15,17 +15,19 @@ import { BigNumber } from 'ethers';
 import { orderHash } from '../utils';
 
 export class FirestoreOrderTransactionProvider extends TransactionProvider {
-  constructor(private db: FirebaseFirestore.Firestore) {
+  constructor(private db: FirebaseFirestore.Firestore, private readonly complicationAddresses: string[]) {
     super();
   }
 
   start(): Promise<void> {
     return new Promise((resolve) => {
       let resolved = false;
-      this.db
+      const query = this.db
         .collection(firestoreConstants.ORDER_MATCHES_COLL)
         .where('state.status', '==', FirestoreOrderMatchStatus.Active)
-        .onSnapshot((snapshot) => {
+        .where('complicationAddress', 'in', this.complicationAddresses);
+      query.onSnapshot(
+        (snapshot) => {
           if (!resolved) {
             resolve();
             resolved = true;
@@ -44,7 +46,11 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
                 break;
             }
           }
-        });
+        },
+        (err) => {
+          console.error(err);
+        }
+      );
     });
   }
 

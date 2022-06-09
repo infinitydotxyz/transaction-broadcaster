@@ -12,7 +12,7 @@ type SupportedChainId = ChainId.Mainnet | ChainId.Goerli;
 
 const txBundlerPoolOptions: TxBundlerPoolOptions = {
   minBundleSize: {
-    [BundleType.MatchOrders]: 2
+    [BundleType.MatchOrders]: 1 // TODO increase this 
     // [BundleType.MatchOrdersOneToOne]: 2,
   }
 };
@@ -87,5 +87,5 @@ export async function getBroadcasters() {
     [ChainId.Goerli]: goerliBroadcaster
   };
 
-  return chainIdBroadcasters;
+  return { chainIdBroadcasters, infinityExchange };
 }

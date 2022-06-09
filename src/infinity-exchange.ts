@@ -31,12 +31,29 @@ type InvalidBundleItem = {
 };
 export class InfinityExchange {
   private contracts: Map<ChainId, Contract>;
+
+  public get exchangeAddresses() {
+    return [...this.contracts.values()].map((contract) => contract.address);
+  }
+  
   constructor(private providers: Record<ChainId, providers.JsonRpcProvider>) {
     this.contracts = new Map();
     for (const [chainId, provider] of Object.entries(providers) as [ChainId, providers.JsonRpcProvider][]) {
       const contract = new Contract(InfinityExchange.getExchangeAddress(chainId), infinityExchangeAbi, provider);
       this.contracts.set(chainId, contract);
     }
+  }
+
+  public async getComplicationAddresses(): Promise<string[]> {
+    const complications: string[] = [];
+    for(const contract of this.contracts.values()) {
+      const numComplications = await contract.numComplications();
+      for(let i = 0; i < numComplications; i++) {
+        const complication = await contract.getComplicationAt(i);
+        complications.push(complication.trim().toLowerCase());
+      }
+    }
+    return complications;
   }
 
   public getBundleEncoder(bundleType: BundleType, chainId: ChainId, signerAddress: string) {
@@ -89,11 +106,7 @@ export class InfinityExchange {
               };
             } catch (err: any) {
               if ('error' in err && 'error' in err.error) {
-                if (err.error.error.code === 3) {
-                  console.log(err.error.error);
-                } else {
-                  console.error(err.error.error);
-                }
+                console.log(err.error.error);
               } else {
                 console.error(err);
               }
@@ -147,7 +160,10 @@ export class InfinityExchange {
       const {
         validBundleItems: validBundleItemsAfterNftApproval,
         invalidBundleItems: invalidBundleItemsAfterNftApproval
-      } = await this.checkNftSellerApprovalAndBalance(validBundleItems as unknown as BundleItemWithCurrentPrice[], chainId); // TODO remove casting once other bundle item types are added
+      } = await this.checkNftSellerApprovalAndBalance(
+        validBundleItems as unknown as BundleItemWithCurrentPrice[],
+        chainId
+      ); // TODO remove casting once other bundle item types are added
       validBundleItems = validBundleItemsAfterNftApproval as unknown as BundleItemWithCurrentPrice[];
       invalidBundleItems = [...invalidBundleItems, ...invalidBundleItemsAfterNftApproval];
 
@@ -158,7 +174,10 @@ export class InfinityExchange {
       const {
         validBundleItems: validBundleItemsAfterCurrencyCheck,
         invalidBundleItems: invalidBundleItemsFromCurrencyCheck
-      } = await this.checkNftBuyerApprovalAndBalance(validBundleItems as unknown as BundleItemWithCurrentPrice[], chainId); // TODO remove casting once other bundle item types are added
+      } = await this.checkNftBuyerApprovalAndBalance(
+        validBundleItems as unknown as BundleItemWithCurrentPrice[],
+        chainId
+      ); // TODO remove casting once other bundle item types are added
       validBundleItems = validBundleItemsAfterCurrencyCheck as unknown as BundleItemWithCurrentPrice[];
       invalidBundleItems = [...invalidBundleItems, ...invalidBundleItemsFromCurrencyCheck];
 
@@ -166,11 +185,14 @@ export class InfinityExchange {
         `Have ${validBundleItems.length} valid bundle items and ${invalidBundleItems.length} invalid bundle items after checking currency approval and balance`
       );
 
-      // if (validBundleItems.length < minBundleSize) {
-      //   return { txRequests: [] as TransactionRequest[], invalidBundleItems: invalidBundleItemsFromVerify };
-      // } // TODO enable min bundle size
+      if (validBundleItems.length < minBundleSize) {
+        return { txRequests: [] as TransactionRequest[], invalidBundleItems: invalidBundleItemsFromVerify };
+      }
 
-      const { txRequests, invalidBundleItems: invalidBundleItemsFromBuild } = await buildBundles(validBundleItems as unknown[] as BundleItem[], 1);
+      const { txRequests, invalidBundleItems: invalidBundleItemsFromBuild } = await buildBundles(
+        validBundleItems as unknown[] as BundleItem[],
+        1
+      );
 
       return { txRequests, invalidBundleItems: [...invalidBundleItemsFromVerify, ...invalidBundleItemsFromBuild] };
     };
@@ -199,34 +221,34 @@ export class InfinityExchange {
             const contract = new ethers.Contract(currency, erc20Abi, provider);
             const allowance: BigNumberish = await contract.allowance(buyer, operator);
             let expectedCost = bundleItem.currentPrice.mul(11).div(10); // 10% buffer
-            if(currency === weth) {
+            if (currency === weth) {
               // TODO estimate gas price and add it here
               expectedCost = expectedCost.add(0);
             }
 
             if (BigNumber.from(allowance).lt(expectedCost)) {
-              return { 
+              return {
                 bundleItem,
                 isValid: false,
                 orderError: {
                   code: FirestoreOrderMatchErrorCode.InsufficientCurrencyAllowance,
                   error: `Buyer: ${buyer} has an insufficient currency allowance for currency ${currency}. Allowance: ${allowance.toString()}. Expected: ${expectedCost.toString()}`
                 }
-              }
+              };
             }
 
             const balance: BigNumberish = await contract.balanceOf(buyer);
             if (BigNumber.from(balance).lt(expectedCost)) {
-              return { 
+              return {
                 bundleItem,
                 isValid: false,
                 orderError: {
                   code: FirestoreOrderMatchErrorCode.InsufficientCurrencyBalance,
                   error: `Buyer: ${buyer} has an insufficient currency balance for currency ${currency}. Balance: ${balance.toString()}. Expected: ${expectedCost.toString()}`
                 }
-              }
+              };
             }
-          } 
+          }
           return { bundleItem, isValid: true };
         } catch (err) {
           console.error(err);
