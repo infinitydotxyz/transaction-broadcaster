@@ -88,13 +88,12 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
       if (match.state.status !== FirestoreOrderMatchStatus.Active) {
         throw new Error('Order match is not active');
       }
-
       const { listing, offer } = await this.getOrders(match);
       const bundleItem = this.createBundleItem(id, listing, offer, match);
 
       this.emit(TransactionProviderEvent.Update, { id, item: bundleItem });
     } catch (err) {
-      // console.error(err);
+      console.error(err);
     }
   }
 
@@ -143,7 +142,6 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
         BigNumber.from(offer.signedOrder.constraints[2]).toString(),
         offer.signedOrder.constraints[3],
         offer.signedOrder.constraints[4],
-        offer.minBpsToSeller,
         offer.nonce
       ],
       nfts: chainNfts,
