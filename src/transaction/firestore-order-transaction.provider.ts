@@ -6,12 +6,14 @@ import {
   ChainOBOrder,
   FirestoreOrder,
   FirestoreOrderMatch,
+  FirestoreOrderMatchMethod,
+  FirestoreOrderMatchOneToOne,
   FirestoreOrderMatchStatus,
   OrderMatchState
 } from '@infinityxyz/lib/types/core';
 import { TransactionProviderEvent } from './transaction.provider.interface';
 import { getExchangeAddress } from '@infinityxyz/lib/utils/orders';
-import { BundleItem, BundleType } from '../flashbots-broadcaster/bundle.types';
+import { BundleItem, BundleType, MatchOrdersBundleItem, MatchOrdersOneToOneBundleItem } from '../flashbots-broadcaster/bundle.types';
 import { BigNumber } from 'ethers';
 import { orderHash } from '../utils/order-hash';
 
@@ -101,7 +103,7 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
     id: string,
     listing: FirestoreOrder,
     offer: FirestoreOrder,
-    match: FirestoreOrderMatch
+    match: FirestoreOrderMatch | FirestoreOrderMatchOneToOne
   ): BundleItem {
     const chainNfts: ChainNFTs[] = [];
     let numMatches = 0;
@@ -129,6 +131,34 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
       numMatches += collectionNumMatches;
     }
 
+    switch (match.type) {
+      case FirestoreOrderMatchMethod.MatchOrders:
+        return this.getMatchOrdersBundle(id, listing, offer, numMatches, chainNfts);
+      case FirestoreOrderMatchMethod.MatchOneToOneOrders: {
+        const bundleItem: MatchOrdersOneToOneBundleItem = {
+          id,
+          chainId: listing.chainId as ChainId,
+          bundleType: BundleType.MatchOrdersOneToOne,
+          exchangeAddress: getExchangeAddress(listing.chainId),
+          sell: listing.signedOrder,
+          buy: offer.signedOrder,
+          buyOrderHash: orderHash(offer.signedOrder),
+          sellOrderHash: orderHash(listing.signedOrder),
+        };
+        return bundleItem;
+      }
+      default: 
+        throw new Error(`Unknown match type: ${(match as any)?.type}`);
+    }
+  }
+
+  private getMatchOrdersBundle(
+    id: string,
+    listing: FirestoreOrder,
+    offer: FirestoreOrder,
+    numMatches: number,
+    chainNfts: ChainNFTs[]
+  ) {
     const constructed: ChainOBOrder = {
       /**
        * refunding gas fees is done in WETH and paid by the buyer
@@ -152,7 +182,7 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
 
     listing.signedOrder.constraints = listing.signedOrder.constraints.map((item) => BigNumber.from(item).toString());
     offer.signedOrder.constraints = offer.signedOrder.constraints.map((item) => BigNumber.from(item).toString());
-    const bundle: BundleItem = {
+    const bundleItem: MatchOrdersBundleItem = {
       id,
       chainId: listing.chainId as ChainId,
       bundleType: BundleType.MatchOrders,
@@ -163,7 +193,8 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
       sellOrderHash: orderHash(listing.signedOrder),
       constructed
     };
-    return bundle;
+
+    return bundleItem;
   }
 
   private handleOrderMatchRemoved(id: string): void {

@@ -1,6 +1,13 @@
 import { TransactionRequest } from '@ethersproject/abstract-provider';
+import { ChainNFTs } from '@infinityxyz/lib/types/core/OBOrder';
 import { NftTransfer } from '../utils/log.types';
-import { BundleEncoder, BundleItem, BundleType } from './bundle.types';
+import {
+  BundleEncoder,
+  BundleItem,
+  BundleOrdersEncoder,
+  BundleType,
+  BundleTypeToBundleItem,
+} from './bundle.types';
 import { TxPool } from './tx-pool.interface';
 
 export interface TxBundlerPoolOptions {
@@ -15,6 +22,11 @@ export class TxBundlerPool implements TxPool<BundleItem> {
   private bundlePool: Map<BundleType, Map<string, BundleItem>>;
   private transferIdToBundleId = new Map<string, string>();
   private idToBundleType: Map<string, BundleType>;
+
+  private getEncoder<Method extends BundleType>(bundleType: Method): BundleOrdersEncoder<BundleTypeToBundleItem[Method]> {
+    const encoder = this.encode[bundleType];
+    return encoder as unknown as BundleOrdersEncoder<BundleTypeToBundleItem[Method]>;
+  }
 
   constructor(private encode: Record<BundleType, BundleEncoder[BundleType]>, private options: TxBundlerPoolOptions) {
     this.bundlePool = new Map();
@@ -84,9 +96,9 @@ export class TxBundlerPool implements TxPool<BundleItem> {
     let txRequests: TransactionRequest[] = [];
     let invalid: BundleItem[] = [];
     for (const [bundleType, bundle] of bundleTypes) {
-      const bundleItemsUnderUnderGasPrice = Array.from(bundle.values()).filter(
-        (item) => item.maxGasPriceGwei === undefined || item.maxGasPriceGwei > options.maxGasFeeGwei
-      );
+      const bundleItemsUnderUnderGasPrice = (
+        Array.from(bundle.values()) as [BundleTypeToBundleItem[BundleType]]
+      ).filter((item) => item.maxGasPriceGwei === undefined || item.maxGasPriceGwei > options.maxGasFeeGwei);
 
       /**
        * don't return multiple bundle items that change the quantity of a token
@@ -94,9 +106,9 @@ export class TxBundlerPool implements TxPool<BundleItem> {
        */
       let tokenIds = new Set<string>();
       const nonConflictingBundleItems = bundleItemsUnderUnderGasPrice.filter((bundleItem) => {
-        // TODO should we limit buyers to one transaction per bundle? 
+        // TODO should we limit buyers to one transaction per bundle?
         // otherwise we need to check to make sure the buyers have enough currency across multiple orders
-        const ids = this.getOwnerTokenIdsFromBundleItem(bundleItem); 
+        const ids = this.getOwnerTokenIdsFromBundleItem(bundleItem);
         for (const id of ids) {
           if (tokenIds.has(id)) {
             return false;
@@ -107,7 +119,7 @@ export class TxBundlerPool implements TxPool<BundleItem> {
       });
 
       const bundleItems = nonConflictingBundleItems;
-      const encoder = this.encode[bundleType];
+      const encoder = this.getEncoder<BundleType>(bundleType);
       if (encoder && typeof encoder === 'function') {
         const { txRequests: bundleTxRequests, invalidBundleItems } = await encoder(
           bundleItems,
@@ -123,7 +135,14 @@ export class TxBundlerPool implements TxPool<BundleItem> {
 
   private getTransferIdsFromBundleItem(bundleItem: BundleItem): string[] {
     const ids = new Set<string>();
-    for (const nft of bundleItem.constructed.nfts) {
+    let nfts: ChainNFTs[] = [];
+    if('constructed' in bundleItem) {
+      nfts = bundleItem.constructed.nfts; // match orders
+    } else {
+      nfts = bundleItem.buy.nfts; // match order sone to one
+    }
+
+    for (const nft of nfts) {
       const collection = nft.collection;
       for (const token of nft.tokens) {
         const amount = token.numTokens;
@@ -149,7 +168,14 @@ export class TxBundlerPool implements TxPool<BundleItem> {
    */
   private getOwnerTokenIdsFromBundleItem(bundleItem: BundleItem): string[] {
     const ids = new Set<string>();
-    for (const nft of bundleItem.constructed.nfts) {
+    let nfts: ChainNFTs[] = [];
+    if('constructed' in bundleItem) {
+      nfts = bundleItem.constructed.nfts; // match orders
+    } else {
+      nfts = bundleItem.buy.nfts; // match order sone to one
+    }
+
+    for (const nft of nfts) {
       const collection = nft.collection;
       for (const token of nft.tokens) {
         const tokenId = token.tokenId;

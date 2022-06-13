@@ -4,14 +4,14 @@ import { ChainId, FirestoreOrderMatchMethod } from '@infinityxyz/lib/types/core'
 import { ChainNFTs, ChainOBOrder, MakerOrder } from '@infinityxyz/lib/types/core/OBOrder';
 
 export enum BundleType {
-  MatchOrders = 'matchOrders'
-  // MatchOrdersOneToOne = 'matchOrdersOneToOne', // TODO add support for one to one
+  MatchOrders = 'matchOrders',
+  MatchOrdersOneToOne = 'matchOrdersOneToOne', 
   // MatchOrdersOneToMany =  'matchOrdersOneToMany' // TODO add support for one to many
 }
 
 export const orderMatchMethodToBundleType = {
-  [FirestoreOrderMatchMethod.MatchOrders]: BundleType.MatchOrders
-  // [FirestoreOrderMatchMethod.MatchOneToOneOrders]: BundleType.MatchOrdersOneToOne,
+  [FirestoreOrderMatchMethod.MatchOrders]: BundleType.MatchOrders,
+  [FirestoreOrderMatchMethod.MatchOneToOneOrders]: BundleType.MatchOrdersOneToOne,
   // [FirestoreOrderMatchMethod.MatchOneToManyOrders]: BundleType.MatchOrdersOneToMany
 };
 
@@ -22,26 +22,24 @@ export interface BaseBundleItem {
   chainId: ChainId;
 }
 
-export interface MatchOrdersBundleItem extends BaseBundleItem {
-  bundleType: BundleType.MatchOrders;
+export interface OneToOneBundleItem extends BaseBundleItem {
   exchangeAddress: string;
   sell: ChainOBOrder;
   buy: ChainOBOrder;
   sellOrderHash: string;
   buyOrderHash: string;
+}
+
+export interface MatchOrdersOneToOneBundleItem extends OneToOneBundleItem {
+  bundleType: BundleType.MatchOrdersOneToOne;
+}
+
+export interface MatchOrdersBundleItem extends OneToOneBundleItem {
+  bundleType: BundleType.MatchOrders;
   constructed: ChainOBOrder;
 }
 
-// export interface MatchOrdersOneToOneBundle extends BaseBundleItem {
-//   bundleType: BundleType.MatchOrdersOneToOne;
-//   exchangeAddress: string;
-//   sell: ChainOBOrder;
-//   buy: ChainOBOrder;
-//   sellOrderHash: string;
-//   buyOrderHash: string;
-// }
-
-export type BundleItem = MatchOrdersBundleItem;
+export type BundleItem = MatchOrdersBundleItem | MatchOrdersOneToOneBundleItem;
 
 export type BundleItemWithCurrentPrice = BundleItem & { currentPrice: BigNumber };
 
@@ -61,6 +59,12 @@ export type BundleOrdersEncoder<T> = (
 
 export type BundleEncoder = {
   [BundleType.MatchOrders]: BundleOrdersEncoder<MatchOrdersBundleItem>;
+  [BundleType.MatchOrdersOneToOne]: BundleOrdersEncoder<MatchOrdersOneToOneBundleItem>;
 };
+
+export type BundleTypeToBundleItem  = {
+  [BundleType.MatchOrders]: MatchOrdersBundleItem;
+  [BundleType.MatchOrdersOneToOne]: MatchOrdersOneToOneBundleItem;
+}
 
 export type MatchOrdersArgs = [MakerOrder[], MakerOrder[], ChainNFTs[][]];
