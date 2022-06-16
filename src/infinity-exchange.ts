@@ -2,11 +2,12 @@ import { TransactionRequest } from '@ethersproject/abstract-provider';
 import {
   ChainId,
   ChainNFTs,
+  ChainOBOrder,
   FirestoreOrderMatchErrorCode,
   MakerOrder,
   OrderMatchStateError
 } from '@infinityxyz/lib/types/core';
-import { getExchangeAddress, getTxnCurrencyAddress } from '@infinityxyz/lib/utils/orders';
+import { getExchangeAddress, getOBOrderPrice, getTxnCurrencyAddress } from '@infinityxyz/lib/utils/orders';
 import { BigNumber, BigNumberish, Contract, ethers, providers } from 'ethers';
 import { erc20Abi } from './abi/erc20.abi';
 import { erc721Abi } from './abi/erc721.abi';
@@ -26,6 +27,7 @@ import {
   MatchOrdersOneToOneBundleItem
 } from './flashbots-broadcaster/bundle.types';
 import { getErrorMessage } from './utils/general';
+import { formatEther } from 'ethers/lib/utils';
 
 type InvalidBundleItem = {
   bundleItem: BundleItem | MatchOrdersBundleItem;
@@ -463,9 +465,8 @@ export class InfinityExchange {
             item.sellOrderHash,
             item.buyOrderHash,
             item.sell,
-            item.buy,
-            item.constructed.nfts
-          ) as Promise<[boolean, string]>;
+            item.buy
+          ) as Promise<boolean>;
         })
       );
       return bundleItems.reduce(
@@ -478,8 +479,19 @@ export class InfinityExchange {
           index
         ) => {
           const result = results[index];
-          const isValid = result.status === 'fulfilled' && result.value[0];
-          const currentPrice = result.status === 'fulfilled' ? BigNumber.from(result.value[1]) : BigNumber.from(0);
+          const isValid = result.status === 'fulfilled' && result.value;
+          const getCurrentPrice = (order: ChainOBOrder) => {
+            const startPriceEth = parseFloat(formatEther(order.constraints[1]).toString());
+            const endPriceEth = parseFloat(formatEther(order.constraints[2]).toString());
+            const startTimeMs = BigNumber.from(order.constraints[3]).toNumber() * 1000;
+            const endTimeMs = BigNumber.from(order.constraints[4]).toNumber() * 1000;
+            const props = { startPriceEth, startTimeMs, endPriceEth, endTimeMs};
+            const currentPrice = getOBOrderPrice(props, Date.now());
+            return currentPrice;
+          }
+          const sellPrice = getCurrentPrice(bundleItem.sell);
+          const buyPrice = getCurrentPrice(bundleItem.buy);
+          const currentPrice = sellPrice.gte(buyPrice) ? buyPrice: sellPrice;     
           const bundleItemWithCurrentPrice: BundleItemWithCurrentPrice = {
             ...bundleItem,
             currentPrice

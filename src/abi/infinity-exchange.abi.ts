@@ -29,30 +29,6 @@ export const infinityExchangeAbi = [
   },
   {
     anonymous: false,
-    inputs: [{ indexed: false, internalType: 'address', name: 'complicationRegistry', type: 'address' }],
-    name: 'ComplicationAdded',
-    type: 'event'
-  },
-  {
-    anonymous: false,
-    inputs: [{ indexed: false, internalType: 'address', name: 'complicationRegistry', type: 'address' }],
-    name: 'ComplicationRemoved',
-    type: 'event'
-  },
-  {
-    anonymous: false,
-    inputs: [{ indexed: false, internalType: 'address', name: 'currencyRegistry', type: 'address' }],
-    name: 'CurrencyAdded',
-    type: 'event'
-  },
-  {
-    anonymous: false,
-    inputs: [{ indexed: false, internalType: 'address', name: 'currencyRegistry', type: 'address' }],
-    name: 'CurrencyRemoved',
-    type: 'event'
-  },
-  {
-    anonymous: false,
     inputs: [
       { indexed: false, internalType: 'bytes32', name: 'sellOrderHash', type: 'bytes32' },
       { indexed: false, internalType: 'bytes32', name: 'buyOrderHash', type: 'bytes32' },
@@ -67,13 +43,13 @@ export const infinityExchangeAbi = [
   },
   {
     anonymous: false,
-    inputs: [{ indexed: false, internalType: 'address', name: 'matchExecutor', type: 'address' }],
-    name: 'NewMatchExecutor',
+    inputs: [{ indexed: false, internalType: 'uint16', name: 'protocolFee', type: 'uint16' }],
+    name: 'NewProtocolFee',
     type: 'event'
   },
   {
     anonymous: false,
-    inputs: [{ indexed: false, internalType: 'uint16', name: 'wethTransferGasUnits', type: 'uint16' }],
+    inputs: [{ indexed: false, internalType: 'uint32', name: 'wethTransferGasUnits', type: 'uint32' }],
     name: 'NewWethTransferGasUnits',
     type: 'event'
   },
@@ -116,6 +92,13 @@ export const infinityExchangeAbi = [
   },
   {
     inputs: [],
+    name: 'PROTOCOL_FEE_BPS',
+    outputs: [{ internalType: 'uint16', name: '', type: 'uint16' }],
+    stateMutability: 'view',
+    type: 'function'
+  },
+  {
+    inputs: [],
     name: 'WETH',
     outputs: [{ internalType: 'address', name: '', type: 'address' }],
     stateMutability: 'view',
@@ -124,7 +107,7 @@ export const infinityExchangeAbi = [
   {
     inputs: [],
     name: 'WETH_TRANSFER_GAS_UNITS',
-    outputs: [{ internalType: 'uint16', name: '', type: 'uint16' }],
+    outputs: [{ internalType: 'uint32', name: '', type: 'uint32' }],
     stateMutability: 'view',
     type: 'function'
   },
@@ -519,6 +502,13 @@ export const infinityExchangeAbi = [
     type: 'function'
   },
   {
+    inputs: [{ internalType: 'uint16', name: '_protocolFeeBps', type: 'uint16' }],
+    name: 'setProtocolFee',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function'
+  },
+  {
     inputs: [
       {
         components: [
@@ -590,28 +580,20 @@ export const infinityExchangeAbi = [
       },
       {
         components: [
-          { internalType: 'bool', name: 'isSellOrder', type: 'bool' },
+          { internalType: 'address', name: 'collection', type: 'address' },
           {
             components: [
-              { internalType: 'address', name: 'collection', type: 'address' },
-              {
-                components: [
-                  { internalType: 'uint256', name: 'tokenId', type: 'uint256' },
-                  { internalType: 'uint256', name: 'numTokens', type: 'uint256' }
-                ],
-                internalType: 'struct OrderTypes.TokenInfo[]',
-                name: 'tokens',
-                type: 'tuple[]'
-              }
+              { internalType: 'uint256', name: 'tokenId', type: 'uint256' },
+              { internalType: 'uint256', name: 'numTokens', type: 'uint256' }
             ],
-            internalType: 'struct OrderTypes.OrderItem[]',
-            name: 'nfts',
+            internalType: 'struct OrderTypes.TokenInfo[]',
+            name: 'tokens',
             type: 'tuple[]'
           }
         ],
-        internalType: 'struct OrderTypes.TakerOrder[]',
-        name: 'takerOrders',
-        type: 'tuple[]'
+        internalType: 'struct OrderTypes.OrderItem[][]',
+        name: 'takerNfts',
+        type: 'tuple[][]'
       }
     ],
     name: 'takeOrders',
@@ -660,7 +642,7 @@ export const infinityExchangeAbi = [
     type: 'function'
   },
   {
-    inputs: [{ internalType: 'uint16', name: '_wethTransferGasUnits', type: 'uint16' }],
+    inputs: [{ internalType: 'uint32', name: '_wethTransferGasUnits', type: 'uint32' }],
     name: 'updateWethTranferGas',
     outputs: [],
     stateMutability: 'nonpayable',
@@ -675,8 +657,8 @@ export const infinityExchangeAbi = [
   },
   {
     inputs: [
-      { internalType: 'bytes32', name: 'sellOrderHash', type: 'bytes32' },
-      { internalType: 'bytes32', name: 'buyOrderHash', type: 'bytes32' },
+      { internalType: 'bytes32', name: 'orderHash', type: 'bytes32' },
+      { internalType: 'bool', name: 'verifySellOrder', type: 'bool' },
       {
         components: [
           { internalType: 'bool', name: 'isSellOrder', type: 'bool' },
@@ -806,30 +788,80 @@ export const infinityExchangeAbi = [
         internalType: 'struct OrderTypes.MakerOrder',
         name: 'buy',
         type: 'tuple'
+      }
+    ],
+    name: 'verifyMatchOneToOneOrders',
+    outputs: [{ internalType: 'bool', name: '', type: 'bool' }],
+    stateMutability: 'view',
+    type: 'function'
+  },
+  {
+    inputs: [
+      { internalType: 'bytes32', name: 'sellOrderHash', type: 'bytes32' },
+      { internalType: 'bytes32', name: 'buyOrderHash', type: 'bytes32' },
+      {
+        components: [
+          { internalType: 'bool', name: 'isSellOrder', type: 'bool' },
+          { internalType: 'address', name: 'signer', type: 'address' },
+          { internalType: 'uint256[]', name: 'constraints', type: 'uint256[]' },
+          {
+            components: [
+              { internalType: 'address', name: 'collection', type: 'address' },
+              {
+                components: [
+                  { internalType: 'uint256', name: 'tokenId', type: 'uint256' },
+                  { internalType: 'uint256', name: 'numTokens', type: 'uint256' }
+                ],
+                internalType: 'struct OrderTypes.TokenInfo[]',
+                name: 'tokens',
+                type: 'tuple[]'
+              }
+            ],
+            internalType: 'struct OrderTypes.OrderItem[]',
+            name: 'nfts',
+            type: 'tuple[]'
+          },
+          { internalType: 'address[]', name: 'execParams', type: 'address[]' },
+          { internalType: 'bytes', name: 'extraParams', type: 'bytes' },
+          { internalType: 'bytes', name: 'sig', type: 'bytes' }
+        ],
+        internalType: 'struct OrderTypes.MakerOrder',
+        name: 'sell',
+        type: 'tuple'
       },
       {
         components: [
-          { internalType: 'address', name: 'collection', type: 'address' },
+          { internalType: 'bool', name: 'isSellOrder', type: 'bool' },
+          { internalType: 'address', name: 'signer', type: 'address' },
+          { internalType: 'uint256[]', name: 'constraints', type: 'uint256[]' },
           {
             components: [
-              { internalType: 'uint256', name: 'tokenId', type: 'uint256' },
-              { internalType: 'uint256', name: 'numTokens', type: 'uint256' }
+              { internalType: 'address', name: 'collection', type: 'address' },
+              {
+                components: [
+                  { internalType: 'uint256', name: 'tokenId', type: 'uint256' },
+                  { internalType: 'uint256', name: 'numTokens', type: 'uint256' }
+                ],
+                internalType: 'struct OrderTypes.TokenInfo[]',
+                name: 'tokens',
+                type: 'tuple[]'
+              }
             ],
-            internalType: 'struct OrderTypes.TokenInfo[]',
-            name: 'tokens',
+            internalType: 'struct OrderTypes.OrderItem[]',
+            name: 'nfts',
             type: 'tuple[]'
-          }
+          },
+          { internalType: 'address[]', name: 'execParams', type: 'address[]' },
+          { internalType: 'bytes', name: 'extraParams', type: 'bytes' },
+          { internalType: 'bytes', name: 'sig', type: 'bytes' }
         ],
-        internalType: 'struct OrderTypes.OrderItem[]',
-        name: 'constructedNfts',
-        type: 'tuple[]'
+        internalType: 'struct OrderTypes.MakerOrder',
+        name: 'buy',
+        type: 'tuple'
       }
     ],
     name: 'verifyMatchOrders',
-    outputs: [
-      { internalType: 'bool', name: '', type: 'bool' },
-      { internalType: 'uint256', name: '', type: 'uint256' }
-    ],
+    outputs: [{ internalType: 'bool', name: '', type: 'bool' }],
     stateMutability: 'view',
     type: 'function'
   },
@@ -867,70 +899,6 @@ export const infinityExchangeAbi = [
       }
     ],
     name: 'verifyOrderSig',
-    outputs: [{ internalType: 'bool', name: '', type: 'bool' }],
-    stateMutability: 'view',
-    type: 'function'
-  },
-  {
-    inputs: [
-      { internalType: 'bytes32', name: 'makerOrderHash', type: 'bytes32' },
-      {
-        components: [
-          { internalType: 'bool', name: 'isSellOrder', type: 'bool' },
-          { internalType: 'address', name: 'signer', type: 'address' },
-          { internalType: 'uint256[]', name: 'constraints', type: 'uint256[]' },
-          {
-            components: [
-              { internalType: 'address', name: 'collection', type: 'address' },
-              {
-                components: [
-                  { internalType: 'uint256', name: 'tokenId', type: 'uint256' },
-                  { internalType: 'uint256', name: 'numTokens', type: 'uint256' }
-                ],
-                internalType: 'struct OrderTypes.TokenInfo[]',
-                name: 'tokens',
-                type: 'tuple[]'
-              }
-            ],
-            internalType: 'struct OrderTypes.OrderItem[]',
-            name: 'nfts',
-            type: 'tuple[]'
-          },
-          { internalType: 'address[]', name: 'execParams', type: 'address[]' },
-          { internalType: 'bytes', name: 'extraParams', type: 'bytes' },
-          { internalType: 'bytes', name: 'sig', type: 'bytes' }
-        ],
-        internalType: 'struct OrderTypes.MakerOrder',
-        name: 'maker',
-        type: 'tuple'
-      },
-      {
-        components: [
-          { internalType: 'bool', name: 'isSellOrder', type: 'bool' },
-          {
-            components: [
-              { internalType: 'address', name: 'collection', type: 'address' },
-              {
-                components: [
-                  { internalType: 'uint256', name: 'tokenId', type: 'uint256' },
-                  { internalType: 'uint256', name: 'numTokens', type: 'uint256' }
-                ],
-                internalType: 'struct OrderTypes.TokenInfo[]',
-                name: 'tokens',
-                type: 'tuple[]'
-              }
-            ],
-            internalType: 'struct OrderTypes.OrderItem[]',
-            name: 'nfts',
-            type: 'tuple[]'
-          }
-        ],
-        internalType: 'struct OrderTypes.TakerOrder',
-        name: 'taker',
-        type: 'tuple'
-      }
-    ],
-    name: 'verifyTakeOrders',
     outputs: [{ internalType: 'bool', name: '', type: 'bool' }],
     stateMutability: 'view',
     type: 'function'
