@@ -1,13 +1,7 @@
 import { TransactionRequest } from '@ethersproject/abstract-provider';
 import { ChainNFTs } from '@infinityxyz/lib/types/core/OBOrder';
 import { NftTransfer } from '../utils/log.types';
-import {
-  BundleEncoder,
-  BundleItem,
-  BundleOrdersEncoder,
-  BundleType,
-  BundleTypeToBundleItem,
-} from './bundle.types';
+import { BundleEncoder, BundleItem, BundleOrdersEncoder, BundleType, BundleTypeToBundleItem } from './bundle.types';
 import { TxPool } from './tx-pool.interface';
 
 export interface TxBundlerPoolOptions {
@@ -23,7 +17,9 @@ export class TxBundlerPool implements TxPool<BundleItem> {
   private transferIdToBundleId = new Map<string, string>();
   private idToBundleType: Map<string, BundleType>;
 
-  private getEncoder<Method extends BundleType>(bundleType: Method): BundleOrdersEncoder<BundleTypeToBundleItem[Method]> {
+  private getEncoder<Method extends BundleType>(
+    bundleType: Method
+  ): BundleOrdersEncoder<BundleTypeToBundleItem[Method]> {
     const encoder = this.encode[bundleType];
     return encoder as unknown as BundleOrdersEncoder<BundleTypeToBundleItem[Method]>;
   }
@@ -136,7 +132,7 @@ export class TxBundlerPool implements TxPool<BundleItem> {
   private getTransferIdsFromBundleItem(bundleItem: BundleItem): string[] {
     const ids = new Set<string>();
     let nfts: ChainNFTs[] = [];
-    if('constructed' in bundleItem) {
+    if ('constructed' in bundleItem) {
       nfts = bundleItem.constructed.nfts; // match orders
     } else {
       nfts = bundleItem.buy.nfts; // match order sone to one
@@ -169,7 +165,7 @@ export class TxBundlerPool implements TxPool<BundleItem> {
   private getOwnerTokenIdsFromBundleItem(bundleItem: BundleItem): string[] {
     const ids = new Set<string>();
     let nfts: ChainNFTs[] = [];
-    if('constructed' in bundleItem) {
+    if ('constructed' in bundleItem) {
       nfts = bundleItem.constructed.nfts; // match orders
     } else {
       nfts = bundleItem.buy.nfts; // match order sone to one

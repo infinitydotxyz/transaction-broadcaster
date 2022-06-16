@@ -13,7 +13,12 @@ import {
 } from '@infinityxyz/lib/types/core';
 import { TransactionProviderEvent } from './transaction.provider.interface';
 import { getExchangeAddress } from '@infinityxyz/lib/utils/orders';
-import { BundleItem, BundleType, MatchOrdersBundleItem, MatchOrdersOneToOneBundleItem } from '../flashbots-broadcaster/bundle.types';
+import {
+  BundleItem,
+  BundleType,
+  MatchOrdersBundleItem,
+  MatchOrdersOneToOneBundleItem
+} from '../flashbots-broadcaster/bundle.types';
 import { BigNumber } from 'ethers';
 import { orderHash } from '../utils/order-hash';
 
@@ -143,11 +148,11 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
           sell: listing.signedOrder,
           buy: offer.signedOrder,
           buyOrderHash: orderHash(offer.signedOrder),
-          sellOrderHash: orderHash(listing.signedOrder),
+          sellOrderHash: orderHash(listing.signedOrder)
         };
         return bundleItem;
       }
-      default: 
+      default:
         throw new Error(`Unknown match type: ${(match as any)?.type}`);
     }
   }

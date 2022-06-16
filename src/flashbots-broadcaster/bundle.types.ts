@@ -5,13 +5,13 @@ import { ChainNFTs, ChainOBOrder, MakerOrder } from '@infinityxyz/lib/types/core
 
 export enum BundleType {
   MatchOrders = 'matchOrders',
-  MatchOrdersOneToOne = 'matchOrdersOneToOne', 
+  MatchOrdersOneToOne = 'matchOrdersOneToOne'
   // MatchOrdersOneToMany =  'matchOrdersOneToMany' // TODO add support for one to many
 }
 
 export const orderMatchMethodToBundleType = {
   [FirestoreOrderMatchMethod.MatchOrders]: BundleType.MatchOrders,
-  [FirestoreOrderMatchMethod.MatchOneToOneOrders]: BundleType.MatchOrdersOneToOne,
+  [FirestoreOrderMatchMethod.MatchOneToOneOrders]: BundleType.MatchOrdersOneToOne
   // [FirestoreOrderMatchMethod.MatchOneToManyOrders]: BundleType.MatchOrdersOneToMany
 };
 
@@ -41,12 +41,15 @@ export interface MatchOrdersBundleItem extends OneToOneBundleItem {
 
 export type BundleItem = MatchOrdersBundleItem | MatchOrdersOneToOneBundleItem;
 
-export type BundleItemWithCurrentPrice = BundleItem & { currentPrice: BigNumber };
+type CurrentPrice = { currentPrice: BigNumber };
+export type BundleItemWithCurrentPrice =
+  | (MatchOrdersBundleItem & CurrentPrice)
+  | (MatchOrdersOneToOneBundleItem & CurrentPrice);
 
-export type BundleVerifier<T> = (
+export type BundleVerifier<T extends BundleItem> = (
   bundleItems: T[],
   chainId: ChainId
-) => Promise<{ validBundleItems: (T & { currentPrice: BigNumber })[]; invalidBundleItems: T[] }>;
+) => Promise<{ validBundleItems: BundleItemWithCurrentPrice[]; invalidBundleItems: T[] }>;
 export type BundleCallDataEncoder<Args extends Array<unknown>> = (args: Args, chainId: ChainId) => string;
 export type BundleItemsToArgsTransformer<BundleItem, Args extends Array<unknown>> = (
   bundleItems: BundleItem[],
@@ -62,9 +65,10 @@ export type BundleEncoder = {
   [BundleType.MatchOrdersOneToOne]: BundleOrdersEncoder<MatchOrdersOneToOneBundleItem>;
 };
 
-export type BundleTypeToBundleItem  = {
+export type BundleTypeToBundleItem = {
   [BundleType.MatchOrders]: MatchOrdersBundleItem;
   [BundleType.MatchOrdersOneToOne]: MatchOrdersOneToOneBundleItem;
-}
+};
 
 export type MatchOrdersArgs = [MakerOrder[], MakerOrder[], ChainNFTs[][]];
+export type MatchOrdersOneToOneArgs = [MakerOrder[], MakerOrder[]];

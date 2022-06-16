@@ -21,7 +21,9 @@ import {
   BundleType,
   BundleVerifier,
   MatchOrdersArgs,
-  MatchOrdersBundleItem
+  MatchOrdersBundleItem,
+  MatchOrdersOneToOneArgs,
+  MatchOrdersOneToOneBundleItem
 } from './flashbots-broadcaster/bundle.types';
 import { getErrorMessage } from './utils/general';
 
@@ -54,25 +56,33 @@ export class InfinityExchange {
           this.matchOrdersCallDataEncoder.bind(this),
           this.matchOrdersVerifier.bind(this)
         );
+      case BundleType.MatchOrdersOneToOne:
+        return this.getEncoder<MatchOrdersOneToOneBundleItem, MatchOrdersOneToOneArgs>(
+          chainId,
+          signerAddress,
+          this.matchOrdersOneToOneItemsToArgsTransformer.bind(this),
+          this.matchOrdersOneToOneCallDataEncoder.bind(this),
+          this.matchOrdersOneToOneVerifier.bind(this)
+        );
       default:
         throw new Error(`Bundle type ${bundleType} not yet supported`);
     }
   }
 
-  private getEncoder<BundleItem, Args extends Array<unknown>>(
+  private getEncoder<T extends BundleItem, Args extends Array<unknown>>(
     chainId: ChainId,
     signerAddress: string,
-    bundleItemsToArgs: BundleItemsToArgsTransformer<BundleItem, Args>,
+    bundleItemsToArgs: BundleItemsToArgsTransformer<T, Args>,
     encodeCallData: BundleCallDataEncoder<Args>,
-    verifyBundleItems: BundleVerifier<BundleItem>
-  ): BundleOrdersEncoder<BundleItem> {
+    verifyBundleItems: BundleVerifier<T>
+  ): BundleOrdersEncoder<T> {
     const contract = this.getContract(chainId);
     const provider = this.getProvider(chainId);
 
     const buildBundles = async (
-      bundleItems: BundleItem[],
+      bundleItems: T[],
       numBundles: number
-    ): Promise<{ txRequests: TransactionRequest[]; invalidBundleItems: BundleItem[] }> => {
+    ): Promise<{ txRequests: TransactionRequest[]; invalidBundleItems: T[] }> => {
       const bundleArgs = bundleItemsToArgs(bundleItems, numBundles);
       const transactionRequests: TransactionRequest[] = (
         await Promise.all(
@@ -114,10 +124,10 @@ export class InfinityExchange {
       return { txRequests: transactionRequests, invalidBundleItems: [] };
     };
 
-    const encoder: BundleOrdersEncoder<BundleItem> = async (
-      bundleItems: BundleItem[],
+    const encoder: BundleOrdersEncoder<T> = async (
+      bundleItems: T[],
       minBundleSize: number
-    ): Promise<{ txRequests: TransactionRequest[]; invalidBundleItems: BundleItem[] }> => {
+    ): Promise<{ txRequests: TransactionRequest[]; invalidBundleItems: T[] }> => {
       let validBundleItems: BundleItemWithCurrentPrice[] = [];
       let invalidBundleItems: InvalidBundleItem[] = [];
 
@@ -130,15 +140,14 @@ export class InfinityExchange {
         await verifyBundleItems(bundleItems, chainId);
       const invalidBundleItemsFromVerifyWithError = invalidBundleItemsFromVerify.map((invalidItem) => {
         return {
-          bundleItem: invalidItem as unknown as MatchOrdersBundleItem,
+          bundleItem: invalidItem,
           orderError: {
-            // TODO remove casting once other bundle item types are added
             code: FirestoreOrderMatchErrorCode.OrderInvalid,
             error: 'Order match not valid for one or more orders'
           }
         };
       });
-      validBundleItems = validBundleItemsAfterVerification as unknown as BundleItemWithCurrentPrice[]; // TODO remove casting once other bundle item types are added
+      validBundleItems = validBundleItemsAfterVerification;
       invalidBundleItems = [...invalidBundleItems, ...invalidBundleItemsFromVerifyWithError];
 
       console.log(
@@ -148,11 +157,8 @@ export class InfinityExchange {
       const {
         validBundleItems: validBundleItemsAfterNftApproval,
         invalidBundleItems: invalidBundleItemsAfterNftApproval
-      } = await this.checkNftSellerApprovalAndBalance(
-        validBundleItems as unknown as BundleItemWithCurrentPrice[],
-        chainId
-      ); // TODO remove casting once other bundle item types are added
-      validBundleItems = validBundleItemsAfterNftApproval as unknown as BundleItemWithCurrentPrice[];
+      } = await this.checkNftSellerApprovalAndBalance(validBundleItems, chainId);
+      validBundleItems = validBundleItemsAfterNftApproval;
       invalidBundleItems = [...invalidBundleItems, ...invalidBundleItemsAfterNftApproval];
 
       console.log(
@@ -162,10 +168,7 @@ export class InfinityExchange {
       const {
         validBundleItems: validBundleItemsAfterCurrencyCheck,
         invalidBundleItems: invalidBundleItemsFromCurrencyCheck
-      } = await this.checkNftBuyerApprovalAndBalance(
-        validBundleItems as unknown as BundleItemWithCurrentPrice[],
-        chainId
-      ); // TODO remove casting once other bundle item types are added
+      } = await this.checkNftBuyerApprovalAndBalance(validBundleItems, chainId);
       validBundleItems = validBundleItemsAfterCurrencyCheck as unknown as BundleItemWithCurrentPrice[];
       invalidBundleItems = [...invalidBundleItems, ...invalidBundleItemsFromCurrencyCheck];
 
@@ -178,7 +181,7 @@ export class InfinityExchange {
       }
 
       const { txRequests, invalidBundleItems: invalidBundleItemsFromBuild } = await buildBundles(
-        validBundleItems as unknown[] as BundleItem[],
+        validBundleItems as unknown as T[],
         1
       );
 
@@ -353,6 +356,17 @@ export class InfinityExchange {
     );
   }
 
+  private matchOrdersOneToOneCallDataEncoder: BundleCallDataEncoder<MatchOrdersOneToOneArgs> = (
+    args: MatchOrdersOneToOneArgs,
+    chainId: ChainId
+  ) => {
+    const contract = this.getContract(chainId);
+    const fn = contract.interface.getFunction('matchOneToOneOrders');
+    const data = contract.interface.encodeFunctionData(fn, args);
+
+    return data;
+  };
+
   private matchOrdersCallDataEncoder: BundleCallDataEncoder<MatchOrdersArgs> = (
     args: MatchOrdersArgs,
     chainId: ChainId
@@ -362,6 +376,28 @@ export class InfinityExchange {
     const data = contract.interface.encodeFunctionData(fn, args);
 
     return data;
+  };
+
+  private matchOrdersOneToOneItemsToArgsTransformer: BundleItemsToArgsTransformer<
+    MatchOrdersOneToOneBundleItem,
+    MatchOrdersOneToOneArgs
+  > = (bundleItems: MatchOrdersOneToOneBundleItem[], numBundles: number) => {
+    const bundles = bundleItems.reduce(
+      (acc: { sells: MakerOrder[]; buys: MakerOrder[] }[], bundleItem, currentIndex) => {
+        const index = currentIndex % numBundles;
+        const bundle = acc[index] ?? { sells: [], buys: [], constructed: [] };
+        bundle.sells.push(bundleItem.sell);
+        bundle.buys.push(bundleItem.buy);
+        acc[index] = bundle;
+        return acc;
+      },
+      []
+    );
+    const bundlesArgs = bundles.map((bundle) => {
+      const args: MatchOrdersOneToOneArgs = [bundle.sells, bundle.buys];
+      return args;
+    });
+    return bundlesArgs;
   };
 
   private matchOrdersItemsToArgsTransformer: BundleItemsToArgsTransformer<MatchOrdersBundleItem, MatchOrdersArgs> = (
@@ -385,6 +421,34 @@ export class InfinityExchange {
       return args;
     });
     return bundlesArgs;
+  };
+
+  private matchOrdersOneToOneVerifier: BundleVerifier<MatchOrdersOneToOneBundleItem> = async (
+    bundleItems: MatchOrdersOneToOneBundleItem[],
+    chainId: ChainId
+  ) => {
+    try {
+      const result = await new Promise<{
+        validBundleItems: BundleItemWithCurrentPrice[];
+        invalidBundleItems: MatchOrdersOneToOneBundleItem[];
+      }>((res) => {
+        const bundleItemsWithCurrentPrice = bundleItems.map((bundleItem) => {
+          return {
+            ...bundleItem,
+            currentPrice: BigNumber.from(bundleItem.sell.constraints[1])
+          };
+        }); // TODO add validation once new contracts deployed
+        res({
+          validBundleItems: bundleItemsWithCurrentPrice,
+          invalidBundleItems: []
+        });
+      });
+      return result;
+    } catch (err) {
+      console.log(`failed to verify match orders`);
+      console.error(err);
+      throw err;
+    }
   };
 
   private matchOrdersVerifier: BundleVerifier<MatchOrdersBundleItem> = async (
