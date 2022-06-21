@@ -54,7 +54,7 @@ export function decodeErc20Transfer(log: providers.Log): Erc20Transfer[] {
   }
 }
 
-export function decodeMatchOrderFulfilled(log: providers.Log): MatchOrderFulfilledEvent[] {
+export function decodeMatchOrderFulfilled(log: providers.Log): Omit<MatchOrderFulfilledEvent, 'chainId'>[] {
   try {
     const iface = new ethers.utils.Interface(infinityExchangeAbi);
     const res = iface.parseLog(log);
@@ -71,7 +71,7 @@ export function decodeMatchOrderFulfilled(log: providers.Log): MatchOrderFulfill
         seller: seller.toLowerCase(),
         complication: complication.toLowerCase(),
         amount,
-        currencyAddress: currency.toLowerCase()
+        currencyAddress: currency.toLowerCase(),
       }
     ];
   } catch (err) {

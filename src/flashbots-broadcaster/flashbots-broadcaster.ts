@@ -226,11 +226,10 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
 
         const logs = bundleTransactions
           .flatMap(({ receipt }) => receipt.logs)
-          .flatMap((log) => [
-            ...decodeNftTransfer(log),
-            ...decodeErc20Transfer(log),
-            ...decodeMatchOrderFulfilled(log)
-          ]);
+          .flatMap((log) => [...decodeNftTransfer(log), ...decodeErc20Transfer(log), ...decodeMatchOrderFulfilled(log)])
+          .map((item) => {
+            return { ...item, chainId: this.chainId };
+          });
 
         const logsByType = logs.reduce(
           (
