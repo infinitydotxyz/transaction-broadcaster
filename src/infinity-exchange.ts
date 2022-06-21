@@ -485,13 +485,13 @@ export class InfinityExchange {
             const endPriceEth = parseFloat(formatEther(order.constraints[2]).toString());
             const startTimeMs = BigNumber.from(order.constraints[3]).toNumber() * 1000;
             const endTimeMs = BigNumber.from(order.constraints[4]).toNumber() * 1000;
-            const props = { startPriceEth, startTimeMs, endPriceEth, endTimeMs};
+            const props = { startPriceEth, startTimeMs, endPriceEth, endTimeMs };
             const currentPrice = getOBOrderPrice(props, Date.now());
             return currentPrice;
-          }
+          };
           const sellPrice = getCurrentPrice(bundleItem.sell);
           const buyPrice = getCurrentPrice(bundleItem.buy);
-          const currentPrice = sellPrice.gte(buyPrice) ? buyPrice: sellPrice;     
+          const currentPrice = sellPrice.gte(buyPrice) ? buyPrice : sellPrice;
           const bundleItemWithCurrentPrice: BundleItemWithCurrentPrice = {
             ...bundleItem,
             currentPrice
