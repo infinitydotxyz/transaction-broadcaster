@@ -11,9 +11,10 @@ import { InfinityExchange } from './infinity-exchange';
 type SupportedChainId = ChainId.Mainnet | ChainId.Goerli;
 
 const txBundlerPoolOptions: TxBundlerPoolOptions = {
+  // can vary these if needed
   minBundleSize: {
-    [BundleType.MatchOrders]: 1, // TODO increase this
-    [BundleType.MatchOrdersOneToOne]: 1 // TODO increase this
+    [BundleType.MatchOrders]: 3,
+    [BundleType.MatchOrdersOneToOne]: 3
   }
 };
 
