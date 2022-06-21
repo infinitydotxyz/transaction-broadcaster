@@ -1,19 +1,27 @@
 {
   "name": "transaction-broadcaster",
   "version": "1.0.0",
+  "engines": {
+    "node": "16"
+  },
   "scripts": {
     "build": "npm run clean && tsc",
     "clean": "rimraf dist",
     "format": "prettier --write \"src/**/*.ts\"",
     "lint": "eslint \"./src/**/*.ts\" --fix",
-    "start:dev": "ts-node -r dotenv/config ./src/index.ts",
+    "pre:push": "npm run format && npm run lint & npm run build",
+    "start:dev": "cross-env NODE_OPTIONS='--stack-trace-limit=50' ts-node -r dotenv/config ./src/index.ts",
+    "start": "node --max-old-space-size=8192 -r dotenv/config ./dist/index.js",
     "start:fb:example": "ts-node -r dotenv/config ./src/flashbots-broadcaster/example.ts",
-    "update:lib": "npm install @infinityxyz/lib@latest"
+    "update:lib": "npm install @infinityxyz/lib@latest",
+    "deploy:dev": "npm run build && gcloud app deploy --appyaml=./app.yaml --project=nftc-dev",
+    "deploy:prod": "npm run build && gcloud app deploy --appyaml=./app.yaml --project=nftc-infinity"
   },
   "devDependencies": {
     "@types/node": "^17.0.33",
     "@typescript-eslint/eslint-plugin": "^5.23.0",
     "@typescript-eslint/parser": "^5.23.0",
+    "cross-env": "^7.0.3",
     "eslint": "^8.15.0",
     "eslint-config-prettier": "^8.5.0",
     "eslint-plugin-eslint-comments": "^3.2.0",
@@ -26,6 +34,8 @@
     "@flashbots/ethers-provider-bundle": "^0.4.3",
     "@infinityxyz/lib": "^1.94.1",
     "dotenv": "^16.0.1",
-    "ethers": "^5.6.5"
+    "ethers": "^5.6.5",
+    "firebase-admin": "^10.2.0",
+    "phin": "^3.6.1"
   }
 }

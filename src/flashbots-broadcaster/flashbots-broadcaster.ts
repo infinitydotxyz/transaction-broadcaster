@@ -1,12 +1,12 @@
 import { FlashbotsBundleProvider, FlashbotsBundleResolution } from '@flashbots/ethers-provider-bundle';
 import { BigNumber, providers, Wallet } from 'ethers';
 import * as EventEmitter from 'events';
-import { TxPool } from './tx-pool';
-import { getFeesAtTarget, getFlashbotsEndpoint, gweiToWei } from '../../utils';
+import { TxPool } from './tx-pool.interface';
+import { getFeesAtTarget, getFlashbotsEndpoint, gweiToWei } from '../utils/general';
 import {
   BlockEvent,
-  ExecutorEvent,
-  ExecutorEventTypes,
+  FlashbotsBroadcasterEvent,
+  FlashbotsBroadcasterEventTypes,
   FailedBundleSubmission,
   GetEventType,
   getFailedBundleSubmissionReason,
@@ -14,29 +14,41 @@ import {
   SimulatedEvent,
   StartedEvent,
   SubmittingBundleEvent,
-  SuccessfulBundleSubmission
-} from './executor-emitter.types';
-import { ExecutionSettings, ExecutorInternalOptions, ExecutorOptions } from './executor-options.types';
+  SuccessfulBundleSubmission,
+  RevertReason,
+  RelayErrorCode
+} from './flashbots-broadcaster-emitter.types';
+import {
+  FlashbotsBroadcasterSettings,
+  FlashbotsBroadcasterInternalOptions,
+  FlashbotsBroadcasterOptions
+} from './flashbots-broadcaster-options.types';
+import { ChainId, MatchOrderFulfilledEvent } from '@infinityxyz/lib/types/core';
+import { EthWethSwapper } from '../eth-weth-swapper';
+import { decodeErc20Transfer, decodeMatchOrderFulfilled, decodeNftTransfer } from '../utils/log-decoders';
+import { Erc20Transfer, NftTransfer } from '../utils/log.types';
 
-export class Executor {
+export class FlashbotsBroadcaster<T extends { id: string }> {
+  public readonly chainId: ChainId;
   private authSigner: Wallet;
   private signer: Wallet;
-  private provider: providers.BaseProvider;
+  private provider: providers.JsonRpcProvider;
   private flashbotsProvider: FlashbotsBundleProvider;
-  private txPool: TxPool;
-  private mutex: boolean;
+  private txPool: TxPool<T>;
   private readonly network: providers.Network;
-  private readonly settings: ExecutionSettings;
+  private readonly settings: FlashbotsBroadcasterSettings;
   private shutdown?: () => Promise<void>;
   private emitter: EventEmitter;
 
-  static async create(options: ExecutorOptions) {
+  private swapper: EthWethSwapper;
+
+  static async create<T extends { id: string }>(txPool: TxPool<T>, options: FlashbotsBroadcasterOptions) {
     const authSigner = new Wallet(options.authSigner.privateKey, options.provider);
     const signer = new Wallet(options.transactionSigner.privateKey, options.provider);
     const network = await options.provider.getNetwork();
     const connectionUrl = getFlashbotsEndpoint(network);
     const flashbotsProvider = await FlashbotsBundleProvider.create(options.provider, authSigner, connectionUrl);
-    return new Executor({
+    return new FlashbotsBroadcaster<T>({
       authSigner,
       provider: options.provider,
       flashbotsProvider,
@@ -45,14 +57,15 @@ export class Executor {
       network,
       allowReverts: options.allowReverts ?? false,
       filterSimulationReverts: options.filterSimulationReverts ?? true,
-      priorityFee: options.priorityFee ?? 3.5
+      priorityFee: options.priorityFee ?? 3.5,
+      txPool
     });
   }
 
   /**
-   * use the create method to create a new executor instance
+   * use the create method to create a new FlashbotsBroadcaster instance
    */
-  private constructor(options: ExecutorInternalOptions) {
+  private constructor(options: FlashbotsBroadcasterInternalOptions<T>) {
     this.authSigner = options.authSigner;
     this.signer = options.signer;
     this.provider = options.provider;
@@ -64,55 +77,55 @@ export class Executor {
       priorityFee: options.priorityFee
     };
     this.network = options.network;
-    this.txPool = new TxPool();
     this.emitter = new EventEmitter();
-    this.mutex = false;
+    this.txPool = options.txPool;
+    this.chainId = `${this.network.chainId}` as ChainId;
+    this.swapper = new EthWethSwapper(this.provider, this.signer);
   }
 
   /**
-   * start the executor to begin submitting transactions
+   * start the FlashbotsBroadcaster to begin submitting transactions
    * and monitoring blocks/gas prices
    */
   start() {
-    if (this.mutex) {
-      return;
-    }
     this.shutdown = this.setup();
-    this.mutex = true;
     const startedEvent: StartedEvent = {
       settings: this.settings,
       network: this.network,
       authSignerAddress: this.authSigner.address,
       signerAddress: this.signer.address
     };
-    this.emit(ExecutorEvent.Started, startedEvent);
+    this.emit(FlashbotsBroadcasterEvent.Started, startedEvent);
   }
 
   /**
-   * stop the executor
+   * stop the FlashbotsBroadcaster
    */
   async stop() {
-    this.emit(ExecutorEvent.Stopping, {});
+    this.emit(FlashbotsBroadcasterEvent.Stopping, {});
     if (this.shutdown && typeof this.shutdown === 'function') {
       await this.shutdown();
     }
-    this.mutex = false;
-    this.emit(ExecutorEvent.Stopped, {});
+    this.emit(FlashbotsBroadcasterEvent.Stopped, {});
   }
 
-  add(id: string, tx: providers.TransactionRequest) {
-    this.txPool.add(id, tx);
+  add(item: T) {
+    this.txPool.add(item);
+  }
+
+  getBundleItemFromTransfer(transfer: NftTransfer): T | undefined {
+    return this.txPool.getBundleFromTransfer(transfer);
   }
 
   remove(id: string) {
-    this.txPool.delete(id);
+    this.txPool.remove(id);
   }
 
-  on<Event extends ExecutorEvent>(event: Event, listener: (data: GetEventType[Event]) => void) {
+  on<Event extends FlashbotsBroadcasterEvent>(event: Event, listener: (data: GetEventType[Event]) => void) {
     this.emitter.on(event, listener);
   }
 
-  off<Event extends ExecutorEvent>(event: Event, listener: (data: GetEventType[Event]) => void) {
+  off<Event extends FlashbotsBroadcasterEvent>(event: Event, listener: (data: GetEventType[Event]) => void) {
     this.emitter.off(event, listener);
   }
 
@@ -139,9 +152,9 @@ export class Executor {
       const timestamp = block.timestamp;
       const blockEvent: BlockEvent = {
         blockNumber,
-        gasPrice: baseFee
+        gasPrice: baseFee.toString()
       };
-      this.emit(ExecutorEvent.Block, blockEvent);
+      this.emit(FlashbotsBroadcasterEvent.Block, blockEvent);
       await this.execute({ blockNumber, timestamp, baseFee });
     } catch (err) {
       console.error(err);
@@ -150,7 +163,7 @@ export class Executor {
 
   private async execute(currentBlock: { blockNumber: number; timestamp: number; baseFee: BigNumber }) {
     // eslint-disable-next-line prefer-const
-    let { transactions, targetBlockNumber, minTimestamp, maxTimestamp } = this.getTransactions(currentBlock);
+    let { transactions, targetBlockNumber, minTimestamp, maxTimestamp } = await this.getTransactions(currentBlock);
 
     if (transactions.length === 0) {
       return;
@@ -177,7 +190,7 @@ export class Executor {
       maxTimestamp,
       transactions
     };
-    this.emit(ExecutorEvent.SubmittingBundle, submittingEvent);
+    this.emit(FlashbotsBroadcasterEvent.SubmittingBundle, submittingEvent);
 
     const bundleResponse = await this.flashbotsProvider.sendRawBundle(updatedSignedBundle, targetBlockNumber, {
       minTimestamp,
@@ -190,7 +203,7 @@ export class Executor {
         message: bundleResponse.error.message,
         code: bundleResponse.error.code
       };
-      this.emit(ExecutorEvent.RelayError, relayError);
+      this.emit(FlashbotsBroadcasterEvent.RelayError, relayError);
       return;
     }
 
@@ -198,26 +211,68 @@ export class Executor {
     switch (bundleResolution) {
       case FlashbotsBundleResolution.BundleIncluded: {
         const receipts = await bundleResponse.receipts();
-        const bundle = receipts.map((receipt, i) => {
+        const bundleTransactions = receipts.map((receipt, i) => {
           const index = receipt?.transactionIndex ?? i;
           const transaction = transactions[index];
           return {
             receipt,
-            id: transaction?.id,
-            tx: transaction?.tx,
+            tx: transaction,
             successful: receipt?.status === 1
           };
         });
-        const totalGasUsed = bundle.reduce((acc, curr) => {
+        const totalGasUsed = bundleTransactions.reduce((acc, curr) => {
           return acc.add(curr.receipt.gasUsed);
         }, BigNumber.from(0));
 
+        const logs = bundleTransactions
+          .flatMap(({ receipt }) => receipt.logs)
+          .flatMap((log) => [...decodeNftTransfer(log), ...decodeErc20Transfer(log), ...decodeMatchOrderFulfilled(log)])
+          .map((item) => {
+            return { ...item, chainId: this.chainId };
+          });
+
+        const logsByType = logs.reduce(
+          (
+            acc: {
+              nftTransfers: NftTransfer[];
+              erc20Transfers: Erc20Transfer[];
+              matchOrdersFulfilled: MatchOrderFulfilledEvent[];
+            },
+            log
+          ) => {
+            if ('tokenId' in log) {
+              return {
+                ...acc,
+                nftTransfers: [...acc.nftTransfers, log]
+              };
+            } else if ('currency' in log) {
+              return {
+                ...acc,
+                erc20Transfers: [...acc.erc20Transfers, log]
+              };
+            } else if ('sellOrderHash' in log) {
+              return {
+                ...acc,
+                matchOrdersFulfilled: [...acc.matchOrdersFulfilled, log]
+              };
+            } else {
+              return acc;
+            }
+          },
+          { nftTransfers: [], erc20Transfers: [], matchOrdersFulfilled: [] }
+        );
+
         const successfulBundleSubmission: SuccessfulBundleSubmission = {
-          transactions: bundle,
+          transactions: bundleTransactions,
           blockNumber: targetBlockNumber,
-          totalGasUsed
+          totalGasUsed,
+          nftTransfers: logsByType.nftTransfers,
+          erc20Transfers: logsByType.erc20Transfers,
+          matchOrdersFulfilled: logsByType.matchOrdersFulfilled,
+          matchExecutor: this.signer.address.toLowerCase()
         };
-        this.emit(ExecutorEvent.BundleResult, successfulBundleSubmission);
+
+        this.emit(FlashbotsBroadcasterEvent.BundleResult, successfulBundleSubmission);
         break;
       }
       case FlashbotsBundleResolution.BlockPassedWithoutInclusion:
@@ -226,32 +281,33 @@ export class Executor {
           blockNumber: targetBlockNumber,
           reason: getFailedBundleSubmissionReason[bundleResolution]
         };
-        this.emit(ExecutorEvent.BundleResult, failedBundleSubmission);
+        this.emit(FlashbotsBroadcasterEvent.BundleResult, failedBundleSubmission);
         break;
       }
     }
   }
 
-  private getTransactions(currentBlock: { timestamp: number; blockNumber: number; baseFee: BigNumber }) {
+  private async getTransactions(currentBlock: { timestamp: number; blockNumber: number; baseFee: BigNumber }) {
     const minTimestamp = currentBlock.timestamp;
     const maxTimestamp = minTimestamp + 120;
     const targetBlockNumber = currentBlock.blockNumber + this.settings.blocksInFuture;
     const { maxBaseFeeGwei } = getFeesAtTarget(currentBlock.baseFee, this.settings.blocksInFuture);
-    const gasPrice = maxBaseFeeGwei + this.settings.priorityFee;
-    const transactions = this.txPool.getTransactions({ minMaxGasFeeGwei: gasPrice }).map(({ id, tx }) => {
-      const txRequest: providers.TransactionRequest = {
-        gasLimit: 500_000, // required so that eth_estimateGas doesn't throw an error for invalid transactions
-        ...tx,
-        chainId: this.network.chainId,
-        type: 2,
-        maxPriorityFeePerGas: gweiToWei(this.settings.priorityFee),
-        maxFeePerGas: gweiToWei(gasPrice)
-      };
-      return {
-        id,
-        tx: txRequest
-      };
-    });
+    const maxFeePerGasGwei = Math.ceil(maxBaseFeeGwei + this.settings.priorityFee);
+    const maxFeePerGas = gweiToWei(maxBaseFeeGwei);
+
+    // TODO handle invalid bundle items
+    const transactions = (await this.txPool.getTransactions({ maxGasFeeGwei: maxFeePerGasGwei })).txRequests.map(
+      (tx) => {
+        const txRequest: providers.TransactionRequest = {
+          ...tx,
+          chainId: this.network.chainId,
+          type: 2,
+          maxPriorityFeePerGas: gweiToWei(this.settings.priorityFee).toString(),
+          maxFeePerGas
+        };
+        return txRequest;
+      }
+    );
 
     return {
       transactions,
@@ -261,9 +317,9 @@ export class Executor {
     };
   }
 
-  private async getSignedBundle(transactions: { id: string; tx: providers.TransactionRequest }[]): Promise<string[]> {
+  private async getSignedBundle(transactions: providers.TransactionRequest[]): Promise<string[]> {
     const signedBundle = await this.flashbotsProvider.signBundle(
-      transactions.map(({ tx }) => {
+      transactions.map((tx) => {
         return {
           signer: this.signer,
           transaction: tx
@@ -273,31 +329,46 @@ export class Executor {
     return signedBundle;
   }
 
-  private async simulateBundle(transactions: {id: string; tx: providers.TransactionRequest}[]) {
+  private async simulateBundle(
+    transactions: providers.TransactionRequest[],
+    alreadySwapped = false
+  ): Promise<SimulatedEvent> {
     const signedBundle = await this.getSignedBundle(transactions);
-
     const simulationResult = await this.flashbotsProvider.simulate(signedBundle, 'latest');
 
     if ('error' in simulationResult) {
+      /**
+       * attempt to create a tx to swap weth for eth, place it at the beginning of the bundle
+       * and try again
+       */
+      if (simulationResult.error.code === RelayErrorCode.InsufficientFunds && !alreadySwapped) {
+        // const wethBalance = await this.swapper.checkBalance(Token.Weth); // TODO monitor balance of match executor
+        // if (wethBalance.gte(ETHER.div(10))) {
+        //   const transferRequest = await this.swapper.swapWethForEth(wethBalance.toString());
+        //   transactions.unshift(transferRequest);
+        //   return this.simulateBundle(transactions, true);
+        // }
+      }
       const relayError: RelayErrorEvent = {
         message: simulationResult.error.message,
         code: simulationResult.error.code
       };
-      this.emit(ExecutorEvent.RelayError, relayError);
+      this.emit(FlashbotsBroadcasterEvent.RelayError, relayError);
       throw new Error(simulationResult.error.message);
     }
 
     const totalGasUsed = simulationResult.totalGasUsed;
-    const gasPrice = simulationResult.coinbaseDiff.div(totalGasUsed);
+    const simulatedMaxFeePerGas = simulationResult.coinbaseDiff.div(totalGasUsed);
 
-    const simulatedGasPrice = gasPrice;
-    const successful: { id: string; tx: providers.TransactionRequest }[] = [];
-    const reverted: { id: string; tx: providers.TransactionRequest }[] = [];
+    const successful: providers.TransactionRequest[] = [];
+    const reverted: { tx: providers.TransactionRequest; reason: string }[] = [];
     for (let index = 0; index < simulationResult.results.length; index += 1) {
       const txSim = simulationResult.results[index];
       const tx = transactions[index];
       if ('error' in txSim) {
-        reverted.push(tx);
+        const insufficientAllowance = txSim.revert?.includes('insufficient allowance');
+        const reason = (insufficientAllowance ? RevertReason.InsufficientAllowance : txSim.revert) ?? txSim.error;
+        reverted.push({ tx, reason });
       } else {
         successful.push(tx);
       }
@@ -306,15 +377,15 @@ export class Executor {
     const simulatedEvent: SimulatedEvent = {
       successfulTransactions: successful,
       revertedTransactions: reverted,
-      gasPrice: simulatedGasPrice,
+      gasPrice: simulatedMaxFeePerGas,
       totalGasUsed: simulationResult.totalGasUsed
     };
-    this.emit(ExecutorEvent.Simulated, simulatedEvent);
+    this.emit(FlashbotsBroadcasterEvent.Simulated, simulatedEvent);
 
     return simulatedEvent;
   }
 
-  private emit(event: ExecutorEvent, data: ExecutorEventTypes) {
+  private emit(event: FlashbotsBroadcasterEvent, data: FlashbotsBroadcasterEventTypes) {
     this.emitter.emit(event, data);
   }
 }

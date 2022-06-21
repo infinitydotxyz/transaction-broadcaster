@@ -1,10 +1,12 @@
 import { FlashbotsBundleResolution } from '@flashbots/ethers-provider-bundle';
-import { BigNumber, providers } from 'ethers/lib/ethers';
-import { ExecutionSettings } from './executor-options.types';
+import { MatchOrderFulfilledEvent } from '@infinityxyz/lib/types/core';
+import { BigNumber, BigNumberish, providers } from 'ethers/lib/ethers';
+import { Erc20Transfer, NftTransfer } from '../utils/log.types';
+import { FlashbotsBroadcasterSettings } from './flashbots-broadcaster-options.types';
 
-export enum ExecutorEvent {
+export enum FlashbotsBroadcasterEvent {
   /**
-   * executor lifecycle
+   * FlashbotsBroadcaster lifecycle
    */
   Started = 'started',
   Stopping = 'stopping',
@@ -19,8 +21,12 @@ export enum ExecutorEvent {
   RelayError = 'relay-error'
 }
 
+export enum RelayErrorCode {
+  InsufficientFunds = -32000
+}
+
 export interface StartedEvent {
-  settings: ExecutionSettings;
+  settings: FlashbotsBroadcasterSettings;
 
   network: providers.Network;
 
@@ -34,9 +40,13 @@ export interface StoppingEvent {}
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
 export interface StoppedEvent {}
 
+export enum RevertReason {
+  InsufficientAllowance = 'insufficient-allowance'
+}
+
 export interface SimulatedEvent {
-  successfulTransactions: { id: string; tx: providers.TransactionRequest }[];
-  revertedTransactions: { id: string; tx: providers.TransactionRequest }[];
+  successfulTransactions: providers.TransactionRequest[];
+  revertedTransactions: { tx: providers.TransactionRequest; reason: RevertReason | string }[];
   gasPrice: BigNumber;
   totalGasUsed: number;
 }
@@ -45,20 +55,27 @@ export interface SubmittingBundleEvent {
   blockNumber: number;
   minTimestamp: number;
   maxTimestamp: number;
-  transactions: { id: string; tx: providers.TransactionRequest }[];
+  transactions: providers.TransactionRequest[];
 }
 
 export interface SuccessfulBundleSubmission {
   transactions: {
     receipt: providers.TransactionReceipt;
-    id: string;
     tx: providers.TransactionRequest;
     successful: boolean;
   }[];
 
+  nftTransfers: NftTransfer[];
+
+  erc20Transfers: Erc20Transfer[];
+
+  matchOrdersFulfilled: MatchOrderFulfilledEvent[];
+
   blockNumber: number;
 
   totalGasUsed: BigNumber;
+
+  matchExecutor: string;
 }
 
 export enum FailedBundleSubmissionReason {
@@ -79,27 +96,27 @@ export interface FailedBundleSubmission {
 export type BundleSubmissionResultEvent = SuccessfulBundleSubmission | FailedBundleSubmission;
 
 export interface RelayErrorEvent {
-  code: number;
+  code: RelayErrorCode | number;
   message: string;
 }
 
 export interface BlockEvent {
   blockNumber: number;
-  gasPrice: BigNumber;
+  gasPrice: BigNumberish;
 }
 
 export type GetEventType = {
-  [ExecutorEvent.Block]: BlockEvent;
-  [ExecutorEvent.Started]: StartedEvent;
-  [ExecutorEvent.Stopping]: StoppingEvent;
-  [ExecutorEvent.Stopped]: StoppedEvent;
-  [ExecutorEvent.Simulated]: SimulatedEvent;
-  [ExecutorEvent.SubmittingBundle]: SubmittingBundleEvent;
-  [ExecutorEvent.BundleResult]: BundleSubmissionResultEvent;
-  [ExecutorEvent.RelayError]: RelayErrorEvent;
+  [FlashbotsBroadcasterEvent.Block]: BlockEvent;
+  [FlashbotsBroadcasterEvent.Started]: StartedEvent;
+  [FlashbotsBroadcasterEvent.Stopping]: StoppingEvent;
+  [FlashbotsBroadcasterEvent.Stopped]: StoppedEvent;
+  [FlashbotsBroadcasterEvent.Simulated]: SimulatedEvent;
+  [FlashbotsBroadcasterEvent.SubmittingBundle]: SubmittingBundleEvent;
+  [FlashbotsBroadcasterEvent.BundleResult]: BundleSubmissionResultEvent;
+  [FlashbotsBroadcasterEvent.RelayError]: RelayErrorEvent;
 };
 
-export type ExecutorEventTypes =
+export type FlashbotsBroadcasterEventTypes =
   | StartedEvent
   | StoppingEvent
   | StoppedEvent

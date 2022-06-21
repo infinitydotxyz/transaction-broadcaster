@@ -1,7 +1,8 @@
 import { FlashbotsBundleProvider } from '@flashbots/ethers-provider-bundle';
 import { providers, Wallet } from 'ethers/lib/ethers';
+import { TxPool } from './tx-pool.interface';
 
-export interface ExecutorOptions {
+export interface FlashbotsBroadcasterOptions {
   /**
    * auth signer used by Flashbots to identify the sender
    */
@@ -16,7 +17,7 @@ export interface ExecutorOptions {
     privateKey: string;
   };
 
-  provider: providers.BaseProvider;
+  provider: providers.JsonRpcProvider;
 
   /**
    * number of blocks in the future to submit transactions for
@@ -45,18 +46,20 @@ export interface ExecutorOptions {
   allowReverts?: boolean;
 }
 
-export type ExecutionSettings = Required<
-  Pick<ExecutorOptions, 'blocksInFuture' | 'allowReverts' | 'filterSimulationReverts' | 'priorityFee'>
+export type FlashbotsBroadcasterSettings = Required<
+  Pick<FlashbotsBroadcasterOptions, 'blocksInFuture' | 'allowReverts' | 'filterSimulationReverts' | 'priorityFee'>
 >;
 
-export interface ExecutorInternalOptions extends ExecutionSettings {
+export interface FlashbotsBroadcasterInternalOptions<T extends { id: string }> extends FlashbotsBroadcasterSettings {
   flashbotsProvider: FlashbotsBundleProvider;
 
-  provider: providers.BaseProvider;
+  provider: providers.JsonRpcProvider;
 
   authSigner: Wallet;
 
   signer: Wallet;
 
   network: providers.Network;
+
+  txPool: TxPool<T>;
 }
