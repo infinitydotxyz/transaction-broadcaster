@@ -7,6 +7,7 @@ import {
   FirestoreOrder,
   FirestoreOrderMatch,
   FirestoreOrderMatchMethod,
+  FirestoreOrderMatchOneToMany,
   FirestoreOrderMatchOneToOne,
   FirestoreOrderMatchStatus,
   OrderMatchState
@@ -17,6 +18,7 @@ import {
   BundleItem,
   BundleType,
   MatchOrdersBundleItem,
+  MatchOrdersOneToManyBundleItem,
   MatchOrdersOneToOneBundleItem
 } from '../flashbots-broadcaster/bundle.types';
 import { BigNumber } from 'ethers';
@@ -95,8 +97,8 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
       if (match.state.status !== FirestoreOrderMatchStatus.Active) {
         throw new Error('Order match is not active');
       }
-      const { listing, offer } = await this.getOrders(match);
-      const bundleItem = this.createBundleItem(id, listing, offer, match);
+      const { listings, offers } = await this.getOrders(match);
+      const bundleItem = this.createBundleItem(id, listings, offers, match);
 
       this.emit(TransactionProviderEvent.Update, { id, item: bundleItem });
     } catch (err) {
@@ -106,9 +108,9 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
 
   private createBundleItem(
     id: string,
-    listing: FirestoreOrder,
-    offer: FirestoreOrder,
-    match: FirestoreOrderMatch | FirestoreOrderMatchOneToOne
+    listings: FirestoreOrder[],
+    offers: FirestoreOrder[],
+    match: FirestoreOrderMatch | FirestoreOrderMatchOneToOne | FirestoreOrderMatchOneToMany
   ): BundleItem {
     const chainNfts: ChainNFTs[] = [];
     let numMatches = 0;
@@ -137,9 +139,20 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
     }
 
     switch (match.type) {
-      case FirestoreOrderMatchMethod.MatchOrders:
+      case FirestoreOrderMatchMethod.MatchOrders: {
+        const listing = listings[0];
+        const offer = offers[0];
+        if(listings.length !== 1 || !listing || !offer || offers.length !== 1) {
+          throw new Error(`Invalid match orders data. Expected one listing and one offer. Received ${listings.length} listings and ${offers.length} offers.`);
+        }
         return this.getMatchOrdersBundle(id, listing, offer, numMatches, chainNfts);
+      }
       case FirestoreOrderMatchMethod.MatchOneToOneOrders: {
+        const listing = listings[0];
+        const offer = offers[0];
+        if(listings.length !== 1 || !listing || !offer || offers.length !== 1) {
+          throw new Error(`Invalid match orders data. Expected one listing and one offer. Received ${listings.length} listings and ${offers.length} offers.`);
+        }
         const bundleItem: MatchOrdersOneToOneBundleItem = {
           id,
           chainId: listing.chainId as ChainId,
@@ -150,6 +163,33 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
           buyOrderHash: orderHash(offer.signedOrder),
           sellOrderHash: orderHash(listing.signedOrder)
         };
+        return bundleItem;
+      }
+      case FirestoreOrderMatchMethod.MatchOneToManyOrders: {
+        let order: ChainOBOrder;
+        let manyOrders: ChainOBOrder[] = [];
+        if(listings.length === 1) {
+          order = listings[0].signedOrder;
+          manyOrders = offers.map(offer => offer.signedOrder);
+        } else {
+          order = offers[0].signedOrder;
+          manyOrders = listings.map(listing => listing.signedOrder);
+        }
+
+        if(!order || manyOrders.length === 0) {
+          throw new Error(`Invalid match orders data. Expected a single order and multiple matching orders. Received ${listings.length} listings and ${offers.length} offers.`);
+        }
+
+        const bundleItem: MatchOrdersOneToManyBundleItem = {
+          id,
+          chainId: match.chainId,
+          bundleType: BundleType.MatchOrdersOneToMany,
+          exchangeAddress: getExchangeAddress(match.chainId),
+          order,
+          manyOrders,
+          orderHash: orderHash(order),
+          manyOrderHashes: manyOrders.map(orderHash)
+        }
         return bundleItem;
       }
       default:
@@ -206,7 +246,7 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
     this.emit(TransactionProviderEvent.Remove, { id });
   }
 
-  private async getOrders(match: FirestoreOrderMatch): Promise<{ listing: FirestoreOrder; offer: FirestoreOrder }> {
+  private async getOrders(match: FirestoreOrderMatch): Promise<{ listings: FirestoreOrder[]; offers: FirestoreOrder[] }> {
     const ordersCollectionRef = this.db.collection(
       firestoreConstants.ORDERS_COLL
     ) as FirebaseFirestore.CollectionReference<FirestoreOrder>;
@@ -221,14 +261,11 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
     const listing = listings?.[0];
     const offer = offers?.[0];
 
-    if (!listing || !offer) {
-      throw new Error('Order not found');
-    }
-    if (listings.length > 1 || offers.length > 1) {
-      throw new Error(`Multiple orders are not yet supported`);
+    if (!listing || listings.length < 1 || !offer || offers.length < 1) {
+      throw new Error(`Failed to find at least one listing and one offer for order ${match.id}`);
     }
 
-    return { listing, offer };
+    return { listings, offers };
   }
 
   private async deleteOrderMatch(id: string) {

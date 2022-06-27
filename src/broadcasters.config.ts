@@ -13,7 +13,8 @@ type SupportedChainId = ChainId.Mainnet | ChainId.Goerli;
 const txBundlerPoolOptions: TxBundlerPoolOptions = {
   minBundleSize: {
     [BundleType.MatchOrders]: 1, // TODO increase this
-    [BundleType.MatchOrdersOneToOne]: 1 // TODO increase this
+    [BundleType.MatchOrdersOneToOne]: 1, // TODO increase this
+    [BundleType.MatchOrdersOneToMany]: 1
   }
 };
 
@@ -67,6 +68,8 @@ const mainnetMatchOrdersOneToOneEncoder = infinityExchange
   .getBundleEncoder(BundleType.MatchOrdersOneToOne, ChainId.Mainnet, mainnetSigner.address)
   .bind(infinityExchange);
 
+const mainnetMatchOrdersOneToManyEncoder = infinityExchange.getBundleEncoder(BundleType.MatchOrdersOneToMany, ChainId.Mainnet, mainnetSigner.address).bind(infinityExchange);
+
 const goerliMatchOrdersEncoder = infinityExchange
   .getBundleEncoder(BundleType.MatchOrders, ChainId.Goerli, goerliSigner.address)
   .bind(infinityExchange);
@@ -75,14 +78,20 @@ const goerliMatchOrdersOneToOneEncoder = infinityExchange
   .getBundleEncoder(BundleType.MatchOrdersOneToOne, ChainId.Goerli, goerliSigner.address)
   .bind(infinityExchange);
 
+  const goerliMatchOrdersOneToManyEncoder = infinityExchange
+  .getBundleEncoder(BundleType.MatchOrdersOneToMany, ChainId.Goerli, goerliSigner.address)
+  .bind(infinityExchange);
+
 export const bundleEncoders: Record<SupportedChainId, Record<BundleType, BundleEncoder[BundleType]>> = {
   [ChainId.Mainnet]: {
     [BundleType.MatchOrders]: mainnetMatchOrdersEncoder,
-    [BundleType.MatchOrdersOneToOne]: mainnetMatchOrdersOneToOneEncoder
+    [BundleType.MatchOrdersOneToOne]: mainnetMatchOrdersOneToOneEncoder,
+    [BundleType.MatchOrdersOneToMany]: mainnetMatchOrdersOneToManyEncoder
   },
   [ChainId.Goerli]: {
     [BundleType.MatchOrders]: goerliMatchOrdersEncoder,
-    [BundleType.MatchOrdersOneToOne]: goerliMatchOrdersOneToOneEncoder
+    [BundleType.MatchOrdersOneToOne]: goerliMatchOrdersOneToOneEncoder,
+    [BundleType.MatchOrdersOneToMany]: goerliMatchOrdersOneToManyEncoder
   }
 };
 

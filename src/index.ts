@@ -103,7 +103,8 @@ function registerBroadcasterListeners(
         );
 
         const updates = bundleItems.map((bundleItem) => {
-          const matchOrderEvents = matchOrdersFulfilledByBuyOrderHash[bundleItem.buyOrderHash.toLowerCase()];
+          const orderHash = 'orderHash' in bundleItem ? bundleItem.orderHash : bundleItem.buyOrderHash;
+          const matchOrderEvents = matchOrdersFulfilledByBuyOrderHash[orderHash];
           const firstMatchOrderEvent = matchOrderEvents?.[0];
           const txHash = firstMatchOrderEvent?.txHash ?? '';
           const amount = matchOrderEvents.reduce(
@@ -111,7 +112,7 @@ function registerBroadcasterListeners(
             BigNumber.from(0)
           );
           if (!txHash) {
-            console.error(`No txHash for ${bundleItem.buyOrderHash}`);
+            console.error(`No txHash for ${orderHash}`);
           }
           const orderMatchState: Pick<
             OrderMatchStateSuccess,
