@@ -8,6 +8,7 @@ import { FlashbotsBroadcasterOptions } from './flashbots-broadcaster/flashbots-b
 import { TxBundlerPool, TxBundlerPoolOptions } from './flashbots-broadcaster/tx-bundler-pool';
 import { InfinityExchange } from './infinity-exchange';
 
+// type SupportedChainId = ChainId.Mainnet | ChainId.Goerli;
 type SupportedChainId = ChainId.Mainnet | ChainId.Goerli;
 
 const txBundlerPoolOptions: TxBundlerPoolOptions = {
@@ -68,7 +69,9 @@ const mainnetMatchOrdersOneToOneEncoder = infinityExchange
   .getBundleEncoder(BundleType.MatchOrdersOneToOne, ChainId.Mainnet, mainnetSigner.address)
   .bind(infinityExchange);
 
-const mainnetMatchOrdersOneToManyEncoder = infinityExchange.getBundleEncoder(BundleType.MatchOrdersOneToMany, ChainId.Mainnet, mainnetSigner.address).bind(infinityExchange);
+const mainnetMatchOrdersOneToManyEncoder = infinityExchange
+  .getBundleEncoder(BundleType.MatchOrdersOneToMany, ChainId.Mainnet, mainnetSigner.address)
+  .bind(infinityExchange);
 
 const goerliMatchOrdersEncoder = infinityExchange
   .getBundleEncoder(BundleType.MatchOrders, ChainId.Goerli, goerliSigner.address)
@@ -78,7 +81,7 @@ const goerliMatchOrdersOneToOneEncoder = infinityExchange
   .getBundleEncoder(BundleType.MatchOrdersOneToOne, ChainId.Goerli, goerliSigner.address)
   .bind(infinityExchange);
 
-  const goerliMatchOrdersOneToManyEncoder = infinityExchange
+const goerliMatchOrdersOneToManyEncoder = infinityExchange
   .getBundleEncoder(BundleType.MatchOrdersOneToMany, ChainId.Goerli, goerliSigner.address)
   .bind(infinityExchange);
 

@@ -71,7 +71,7 @@ export function decodeMatchOrderFulfilled(log: providers.Log): Omit<MatchOrderFu
         seller: seller.toLowerCase(),
         complication: complication.toLowerCase(),
         amount,
-        currencyAddress: currency.toLowerCase(),
+        currencyAddress: currency.toLowerCase()
       }
     ];
   } catch (err) {

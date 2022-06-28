@@ -52,7 +52,7 @@ export type BundleItem = MatchOrdersBundleItem | MatchOrdersOneToOneBundleItem |
 type CurrentPrice = { currentPrice: BigNumber };
 export type BundleItemWithCurrentPrice =
   | (MatchOrdersBundleItem & CurrentPrice)
-  | (MatchOrdersOneToOneBundleItem & CurrentPrice) 
+  | (MatchOrdersOneToOneBundleItem & CurrentPrice)
   | (MatchOrdersOneToManyBundleItem & CurrentPrice);
 
 export type BundleVerifier<T extends BundleItem> = (
@@ -60,8 +60,10 @@ export type BundleVerifier<T extends BundleItem> = (
   chainId: ChainId
 ) => Promise<{ validBundleItems: BundleItemWithCurrentPrice[]; invalidBundleItems: T[] }>;
 export type BundleCallDataEncoder<Args extends Array<unknown>> = (args: Args, chainId: ChainId) => string;
-export type BundleItemsToArgsTransformer<BundleItem, Args extends Array<unknown>> =
-  | ((bundleItems: BundleItem[], numBundles: number) => Args[]);
+export type BundleItemsToArgsTransformer<BundleItem, Args extends Array<unknown>> = (
+  bundleItems: BundleItem[],
+  numBundles: number
+) => Args[];
 
 export type BundleOrdersEncoder<T> = (
   bundleItems: T[],

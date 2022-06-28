@@ -188,6 +188,8 @@ export class InfinityExchange {
         `Have ${validBundleItems.length} valid bundle items and ${invalidBundleItems.length} invalid bundle items after checking currency approval and balance`
       );
 
+      console.log(JSON.stringify(invalidBundleItems, null, 2));
+
       if (validBundleItems.length < minBundleSize) {
         return { txRequests: [] as TransactionRequest[], invalidBundleItems: invalidBundleItemsFromVerify };
       }
@@ -209,6 +211,7 @@ export class InfinityExchange {
   ): Promise<{ validBundleItems: BundleItemWithCurrentPrice[]; invalidBundleItems: InvalidBundleItem[] }> {
     const provider = this.getProvider(chainId);
     const operator = this.getContract(chainId).address;
+    console.log(`Operator: ${operator}`);
     type BundleItemIsValid = { bundleItem: BundleItemWithCurrentPrice; isValid: true };
     type BundleItemIsInvalid = InvalidBundleItem & { isValid: false };
 
