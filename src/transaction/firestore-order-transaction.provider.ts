@@ -115,6 +115,7 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
     const chainNfts: ChainNFTs[] = [];
     let numMatches = 0;
     const collections = Object.values(match.matchData.orderItems);
+
     for (const collection of collections) {
       let collectionNumMatches = 0;
       const tokens = Object.values(collection.tokens);
@@ -185,7 +186,6 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
             `Invalid match orders data. Expected a single order and multiple matching orders. Received ${listings.length} listings and ${offers.length} offers.`
           );
         }
-
         const bundleItem: MatchOrdersOneToManyBundleItem = {
           id,
           chainId: match.chainId,
@@ -223,7 +223,8 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
         BigNumber.from(offer.signedOrder.constraints[2]).toString(),
         offer.signedOrder.constraints[3],
         offer.signedOrder.constraints[4],
-        offer.nonce
+        offer.nonce,
+        offer.signedOrder.constraints[6]
       ],
       nfts: chainNfts,
       execParams: [listing.complicationAddress, listing.currencyAddress],
