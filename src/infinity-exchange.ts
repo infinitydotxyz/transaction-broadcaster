@@ -28,7 +28,7 @@ import {
   MatchOrdersOneToOneBundleItem
 } from './flashbots-broadcaster/bundle.types';
 import { getErrorMessage } from './utils/general';
-import { parseEther } from 'ethers/lib/utils';
+import { formatEther, parseEther } from 'ethers/lib/utils';
 import { InfinityOBComplicationABI } from '@infinityxyz/lib/abi/infinityOBComplication';
 import { infinityExchangeAbi } from './abi/infinity-exchange.abi';
 import { getOneToManyOrderIntersection } from './utils/intersection';
@@ -514,10 +514,10 @@ export class InfinityExchange {
             const [isValid] = await complication.canExecMatchOneToMany(bundleItem.order, bundleItem.manyOrders);
             const getOrderPrices = (order: MakerOrder) => {
               return {
-                startPriceEth: parseEther(order.execParams[1]).toNumber(),
-                endPriceEth: parseEther(order.execParams[2]).toNumber(),
-                startTimeMs: parseInt(order.execParams[3], 10) * 1000,
-                endTimeMs: parseInt(order.execParams[4], 10) * 1000,
+                startPriceEth: parseFloat(formatEther(BigNumber.from(order.constraints[1]).toString())),
+                endPriceEth: parseFloat(formatEther(BigNumber.from(order.constraints[2]).toString())),
+                startTimeMs: parseInt(BigNumber.from(order.constraints[3]).toString(), 10) * 1000,
+                endTimeMs: parseInt(BigNumber.from(order.constraints[4]).toString(), 10) * 1000,
                 isSellOrder: order.isSellOrder
               }
             }
@@ -558,7 +558,7 @@ export class InfinityExchange {
         ) => {
           const bundleItemWithCurrentPrice: BundleItemWithCurrentPrice = {
             ...bundleItem,
-            currentPrice: BigNumber.from(execPrice)
+            currentPrice: parseEther(execPrice)
           };
           return {
             validBundleItems: isValid ? [...acc.validBundleItems, bundleItemWithCurrentPrice] : acc.validBundleItems,
