@@ -108,7 +108,7 @@ export class InfinityExchange {
                 from: signerAddress,
                 data
               });
-              const gasLimit = Math.floor(estimate.toNumber() * 1.2); 
+              const gasLimit = Math.floor(estimate.toNumber() * 1.2);
               return {
                 to: contract.address,
                 gasLimit: gasLimit,
@@ -519,16 +519,19 @@ export class InfinityExchange {
                 startTimeMs: parseInt(BigNumber.from(order.constraints[3]).toString(), 10) * 1000,
                 endTimeMs: parseInt(BigNumber.from(order.constraints[4]).toString(), 10) * 1000,
                 isSellOrder: order.isSellOrder
-              }
-            }
-            const intersection = getOneToManyOrderIntersection(getOrderPrices(bundleItem.order), bundleItem.manyOrders.map(getOrderPrices));
-            const execPrice = intersection?.getPriceAtTime(Date.now())
-            if(execPrice == null) {
+              };
+            };
+            const intersection = getOneToManyOrderIntersection(
+              getOrderPrices(bundleItem.order),
+              bundleItem.manyOrders.map(getOrderPrices)
+            );
+            const execPrice = intersection?.getPriceAtTime(Date.now());
+            if (execPrice == null) {
               return {
                 bundleItem,
                 isValid: false,
                 execPrice: '0'
-              }
+              };
             }
 
             return {

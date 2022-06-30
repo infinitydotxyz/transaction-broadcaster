@@ -1,4 +1,4 @@
-import { FirestoreOrderItem } from "@infinityxyz/lib/types/core/OBOrder";
+import { FirestoreOrderItem } from '@infinityxyz/lib/types/core/OBOrder';
 
 export type OrderPriceIntersection = {
   timestamp: number;

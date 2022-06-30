@@ -23,6 +23,7 @@ import {
 } from '../flashbots-broadcaster/bundle.types';
 import { BigNumber } from 'ethers';
 import { orderHash } from '../utils/order-hash';
+import { formatUnits } from 'ethers/lib/utils';
 
 export class FirestoreOrderTransactionProvider extends TransactionProvider {
   constructor(private db: FirebaseFirestore.Firestore) {
@@ -166,7 +167,8 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
           sell: listing.signedOrder,
           buy: offer.signedOrder,
           buyOrderHash: orderHash(offer.signedOrder),
-          sellOrderHash: orderHash(listing.signedOrder)
+          sellOrderHash: orderHash(listing.signedOrder),
+          maxGasPriceGwei: parseFloat(formatUnits(offer.maxGasPriceWei, 'gwei'))
         };
         return bundleItem;
       }
@@ -186,6 +188,11 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
             `Invalid match orders data. Expected a single order and multiple matching orders. Received ${listings.length} listings and ${offers.length} offers.`
           );
         }
+        const minMaxGasPriceGweiOfOffers = Math.min(
+          ...offers.map((item) => parseFloat(formatUnits(item.maxGasPriceWei, 'gwei')))
+        );
+        const maxGasPriceGwei = minMaxGasPriceGweiOfOffers * offers.length;
+
         const bundleItem: MatchOrdersOneToManyBundleItem = {
           id,
           chainId: match.chainId,
@@ -194,7 +201,8 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
           order,
           manyOrders,
           orderHash: orderHash(order),
-          manyOrderHashes: manyOrders.map(orderHash)
+          manyOrderHashes: manyOrders.map(orderHash),
+          maxGasPriceGwei
         };
         return bundleItem;
       }
@@ -243,7 +251,8 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
       buy: offer.signedOrder,
       buyOrderHash: orderHash(offer.signedOrder),
       sellOrderHash: orderHash(listing.signedOrder),
-      constructed
+      constructed,
+      maxGasPriceGwei: parseFloat(formatUnits(offer.maxGasPriceWei, 'gwei'))
     };
 
     return bundleItem;

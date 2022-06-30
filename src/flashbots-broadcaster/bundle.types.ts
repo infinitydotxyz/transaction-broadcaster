@@ -18,7 +18,7 @@ export const orderMatchMethodToBundleType = {
 export interface BaseBundleItem {
   id: string;
   bundleType: BundleType;
-  maxGasPriceGwei?: number;
+  maxGasPriceGwei: number;
   chainId: ChainId;
   exchangeAddress: string;
 }
