@@ -7,7 +7,7 @@ import {
   MakerOrder,
   OrderMatchStateError
 } from '@infinityxyz/lib/types/core';
-import { getExchangeAddress, getOBOrderPrice, getTxnCurrencyAddress } from '@infinityxyz/lib/utils/orders';
+import { getExchangeAddress, getTxnCurrencyAddress } from '@infinityxyz/lib/utils/orders';
 import { BigNumber, BigNumberish, Contract, ethers, providers } from 'ethers';
 import { erc20Abi } from './abi/erc20.abi';
 import { erc721Abi } from './abi/erc721.abi';
@@ -28,9 +28,10 @@ import {
   MatchOrdersOneToOneBundleItem
 } from './flashbots-broadcaster/bundle.types';
 import { getErrorMessage } from './utils/general';
-import { formatEther } from 'ethers/lib/utils';
+import { parseEther } from 'ethers/lib/utils';
 import { InfinityOBComplicationABI } from '@infinityxyz/lib/abi/infinityOBComplication';
 import { infinityExchangeAbi } from './abi/infinity-exchange.abi';
+import { getOneToManyOrderIntersection } from './utils/intersection';
 
 type InvalidBundleItem = {
   bundleItem: BundleItem | MatchOrdersBundleItem;
@@ -107,7 +108,7 @@ export class InfinityExchange {
                 from: signerAddress,
                 data
               });
-              const gasLimit = Math.floor(estimate.toNumber() * 1.2); // TODOD
+              const gasLimit = Math.floor(estimate.toNumber() * 1.2); 
               return {
                 to: contract.address,
                 gasLimit: gasLimit,
@@ -502,7 +503,7 @@ export class InfinityExchange {
     chainId: ChainId
   ) => {
     try {
-      const bundleItemsWithCurrentPrice = await Promise.all(
+      const results = await Promise.all(
         bundleItems.map(async (bundleItem) => {
           try {
             const complication = new ethers.Contract(
@@ -510,24 +511,64 @@ export class InfinityExchange {
               InfinityOBComplicationABI,
               this.getProvider(chainId)
             );
-            const [result, hash] = await complication.canExecMatchOneToMany(bundleItem.order, bundleItem.manyOrders); // TODO handle validation
-            console.log(`RESULT: ${result}`);
+            const [isValid] = await complication.canExecMatchOneToMany(bundleItem.order, bundleItem.manyOrders);
+            const getOrderPrices = (order: MakerOrder) => {
+              return {
+                startPriceEth: parseEther(order.execParams[1]).toNumber(),
+                endPriceEth: parseEther(order.execParams[2]).toNumber(),
+                startTimeMs: parseInt(order.execParams[3], 10) * 1000,
+                endTimeMs: parseInt(order.execParams[4], 10) * 1000,
+                isSellOrder: order.isSellOrder
+              }
+            }
+            const intersection = getOneToManyOrderIntersection(getOrderPrices(bundleItem.order), bundleItem.manyOrders.map(getOrderPrices));
+            const execPrice = intersection?.getPriceAtTime(Date.now())
+            if(execPrice == null) {
+              return {
+                bundleItem,
+                isValid: false,
+                execPrice: '0'
+              }
+            }
+
             return {
-              ...bundleItem,
-              currentPrice: BigNumber.from(bundleItem.order.constraints[1]) // get current price from contract
+              bundleItem,
+              isValid,
+              execPrice: execPrice.toString()
             };
           } catch (err) {
+            console.error(`Failed to validate bundle item`);
             console.error(err);
-            throw err;
+            return {
+              bundleItem,
+              isValid: false,
+              execPrice: '0'
+            };
           }
         })
-      ); // TODO add validation once new contracts deployed
-      return {
-        validBundleItems: bundleItemsWithCurrentPrice,
-        invalidBundleItems: []
-      };
+      );
+
+      return results.reduce(
+        (
+          acc: {
+            validBundleItems: BundleItemWithCurrentPrice[];
+            invalidBundleItems: MatchOrdersOneToManyBundleItem[];
+          },
+          { bundleItem, isValid, execPrice }
+        ) => {
+          const bundleItemWithCurrentPrice: BundleItemWithCurrentPrice = {
+            ...bundleItem,
+            currentPrice: BigNumber.from(execPrice)
+          };
+          return {
+            validBundleItems: isValid ? [...acc.validBundleItems, bundleItemWithCurrentPrice] : acc.validBundleItems,
+            invalidBundleItems: !isValid ? [...acc.invalidBundleItems, bundleItem] : acc.invalidBundleItems
+          };
+        },
+        { validBundleItems: [], invalidBundleItems: [] }
+      );
     } catch (err) {
-      console.log(`failed to verify match orders`);
+      console.log(`failed to verify match one to many orders`);
       console.error(err);
       throw err;
     }
@@ -538,43 +579,54 @@ export class InfinityExchange {
     chainId: ChainId
   ) => {
     try {
-      const result = await new Promise<{
-        validBundleItems: BundleItemWithCurrentPrice[];
-        invalidBundleItems: MatchOrdersOneToOneBundleItem[];
-        // eslint-disable-next-line no-async-promise-executor
-      }>(async (res) => {
-        const bundleItemsWithCurrentPrice = await Promise.all(
-          bundleItems.map(async (bundleItem) => {
-            const complication = new ethers.Contract(
-              bundleItem.sell.execParams[0],
-              InfinityOBComplicationABI,
-              this.getProvider(chainId)
-            );
-            try {
-              const [isValid, sellOrderHash, buyOrderHash, execPrice] = await complication.canExecMatchOneToOne(
-                bundleItem.sell,
-                bundleItem.buy
-              );
-              console.log(`Bundle item is valid:${isValid}`);
-            } catch (err) {
-              console.error(`Failed to validate bundle item`);
-              console.error(err);
-            }
-
+      const results = await Promise.all(
+        bundleItems.map(async (bundleItem) => {
+          const complication = new ethers.Contract(
+            bundleItem.sell.execParams[0],
+            InfinityOBComplicationABI,
+            this.getProvider(chainId)
+          );
+          try {
+            const [isValid, , , execPrice] = await complication.canExecMatchOneToOne(bundleItem.sell, bundleItem.buy);
+            console.log(`Bundle item is valid:${isValid}`);
             return {
-              ...bundleItem,
-              currentPrice: BigNumber.from(bundleItem.sell.constraints[1])
+              bundleItem,
+              isValid,
+              execPrice
             };
-          })
-        ); // TODO add validation once new contracts deployed
-        res({
-          validBundleItems: bundleItemsWithCurrentPrice,
-          invalidBundleItems: []
-        });
-      });
-      return result;
+          } catch (err) {
+            console.error(`Failed to validate bundle item`);
+            console.error(err);
+            return {
+              bundleItem,
+              isValid: false,
+              execPrice: '0'
+            };
+          }
+        })
+      );
+
+      return results.reduce(
+        (
+          acc: {
+            validBundleItems: BundleItemWithCurrentPrice[];
+            invalidBundleItems: MatchOrdersOneToOneBundleItem[];
+          },
+          { bundleItem, isValid, execPrice }
+        ) => {
+          const bundleItemWithCurrentPrice: BundleItemWithCurrentPrice = {
+            ...bundleItem,
+            currentPrice: execPrice
+          };
+          return {
+            validBundleItems: isValid ? [...acc.validBundleItems, bundleItemWithCurrentPrice] : acc.validBundleItems,
+            invalidBundleItems: !isValid ? [...acc.invalidBundleItems, bundleItem] : acc.invalidBundleItems
+          };
+        },
+        { validBundleItems: [], invalidBundleItems: [] }
+      );
     } catch (err) {
-      console.log(`failed to verify match orders`);
+      console.log(`failed to verify match one to one orders`);
       console.error(err);
       throw err;
     }
