@@ -61,7 +61,25 @@ export const InfinityExchangeABI = [
       { indexed: true, internalType: 'address', name: 'buyer', type: 'address' },
       { indexed: false, internalType: 'address', name: 'complication', type: 'address' },
       { indexed: true, internalType: 'address', name: 'currency', type: 'address' },
-      { indexed: false, internalType: 'uint256', name: 'amount', type: 'uint256' }
+      { indexed: false, internalType: 'uint256', name: 'amount', type: 'uint256' },
+      {
+        components: [
+          { internalType: 'address', name: 'collection', type: 'address' },
+          {
+            components: [
+              { internalType: 'uint256', name: 'tokenId', type: 'uint256' },
+              { internalType: 'uint256', name: 'numTokens', type: 'uint256' }
+            ],
+            internalType: 'struct OrderTypes.TokenInfo[]',
+            name: 'tokens',
+            type: 'tuple[]'
+          }
+        ],
+        indexed: false,
+        internalType: 'struct OrderTypes.OrderItem[]',
+        name: 'nfts',
+        type: 'tuple[]'
+      }
     ],
     name: 'MatchOrderFulfilled',
     type: 'event'
@@ -95,7 +113,25 @@ export const InfinityExchangeABI = [
       { indexed: true, internalType: 'address', name: 'buyer', type: 'address' },
       { indexed: false, internalType: 'address', name: 'complication', type: 'address' },
       { indexed: true, internalType: 'address', name: 'currency', type: 'address' },
-      { indexed: false, internalType: 'uint256', name: 'amount', type: 'uint256' }
+      { indexed: false, internalType: 'uint256', name: 'amount', type: 'uint256' },
+      {
+        components: [
+          { internalType: 'address', name: 'collection', type: 'address' },
+          {
+            components: [
+              { internalType: 'uint256', name: 'tokenId', type: 'uint256' },
+              { internalType: 'uint256', name: 'numTokens', type: 'uint256' }
+            ],
+            internalType: 'struct OrderTypes.TokenInfo[]',
+            name: 'tokens',
+            type: 'tuple[]'
+          }
+        ],
+        indexed: false,
+        internalType: 'struct OrderTypes.OrderItem[]',
+        name: 'nfts',
+        type: 'tuple[]'
+      }
     ],
     name: 'TakeOrderFulfilled',
     type: 'event'
