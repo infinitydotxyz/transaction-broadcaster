@@ -14,7 +14,7 @@ export class EthWethSwapper {
   public readonly chainId: ChainId;
   public readonly wethAddress: string;
 
-  constructor(private provider: providers.JsonRpcProvider, private wallet: Wallet) {
+  constructor(private provider: providers.StaticJsonRpcProvider, private wallet: Wallet) {
     this.chainId = `${provider.network.chainId}` as ChainId;
     this.wethAddress = chainConstants[this.chainId].wethAddress;
     if (!this.wethAddress) {

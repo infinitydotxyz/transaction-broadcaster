@@ -51,12 +51,12 @@ export const flashbotsOptionsGoerli: FlashbotsBroadcasterOptions = {
   priorityFee: 1
 };
 
-const chainIdProviders: Record<SupportedChainId, providers.JsonRpcProvider> = {
+const chainIdProviders: Record<SupportedChainId, providers.StaticJsonRpcProvider> = {
   [ChainId.Mainnet]: getProvider(ChainId.Mainnet),
   [ChainId.Goerli]: getProvider(ChainId.Goerli)
 };
 
-export const infinityExchange = new InfinityExchange(chainIdProviders as Record<ChainId, providers.JsonRpcProvider>);
+export const infinityExchange = new InfinityExchange(chainIdProviders as Record<ChainId, providers.StaticJsonRpcProvider>);
 
 const mainnetSigner = new Wallet(SIGNER_MAINNET, chainIdProviders[ChainId.Mainnet]);
 const goerliSigner = new Wallet(SIGNER_GOERLI, chainIdProviders[ChainId.Goerli]);
