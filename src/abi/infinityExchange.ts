@@ -1,6 +1,6 @@
 import { ethers } from 'ethers';
 
-export const infinityExchangeAbi = [
+export const InfinityExchangeABI = [
   {
     inputs: [
       { internalType: 'address', name: '_weth', type: 'address' },

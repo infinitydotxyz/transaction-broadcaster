@@ -14,8 +14,8 @@
     "start": "node --max-old-space-size=8192 -r dotenv/config ./dist/index.js",
     "start:fb:example": "ts-node -r dotenv/config ./src/flashbots-broadcaster/example.ts",
     "update:lib": "npm install @infinityxyz/lib@latest",
-    "deploy:dev": "npm run build && gcloud app deploy --appyaml=./app.yaml --project=nftc-dev",
-    "deploy:prod": "npm run build && gcloud app deploy --appyaml=./app.yaml --project=nftc-infinity"
+    "deploy:dev": "npm run build && gcloud app deploy -q --appyaml=./app.yaml --project=nftc-dev",
+    "deploy:prod": "npm run build && gcloud app deploy -q --appyaml=./app.yaml --project=nftc-infinity"
   },
   "devDependencies": {
     "@types/node": "^17.0.33",
@@ -32,7 +32,7 @@
   },
   "dependencies": {
     "@flashbots/ethers-provider-bundle": "^0.4.3",
-    "@infinityxyz/lib": "^1.94.1",
+    "@infinityxyz/lib": "^1.117.2",
     "dotenv": "^16.0.1",
     "ethers": "^5.6.5",
     "firebase-admin": "^10.2.0",

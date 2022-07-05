@@ -32,7 +32,7 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
   public readonly chainId: ChainId;
   private authSigner: Wallet;
   private signer: Wallet;
-  private provider: providers.JsonRpcProvider;
+  private provider: providers.StaticJsonRpcProvider;
   private flashbotsProvider: FlashbotsBundleProvider;
   private txPool: TxPool<T>;
   private readonly network: providers.Network;
