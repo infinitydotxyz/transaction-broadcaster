@@ -2,7 +2,7 @@ import { TransactionRequest } from '@ethersproject/abstract-provider';
 import { ChainId } from '@infinityxyz/lib/types/core';
 import { chainConstants } from '@infinityxyz/lib/utils/constants';
 import { BigNumber, Contract, providers, Wallet } from 'ethers';
-import { erc20Abi } from './abi/erc20.abi';
+import { ERC20ABI } from '@infinityxyz/lib/abi';
 import { wethAbi } from './abi/weth.abi';
 
 export enum Token {
@@ -39,7 +39,7 @@ export class EthWethSwapper {
   }
 
   public async getErc20Balance(address: string): Promise<BigNumber> {
-    const contract = new Contract(address, erc20Abi, this.provider);
+    const contract = new Contract(address, ERC20ABI, this.provider);
     const balance = await contract.functions.balanceOf(address);
     return BigNumber.from(balance.toString());
   }

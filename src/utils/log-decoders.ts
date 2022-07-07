@@ -1,9 +1,7 @@
 import { MatchOrderFulfilledEvent } from '@infinityxyz/lib/types/core';
 import { ethers } from 'ethers';
 import { BigNumber, providers } from 'ethers/lib/ethers';
-import { erc20Abi } from '../abi/erc20.abi';
-import { erc721Abi } from '../abi/erc721.abi';
-import { infinityExchangeAbi } from '../abi/infinity-exchange.abi';
+import { ERC20ABI, ERC721ABI, InfinityExchangeABI } from '@infinityxyz/lib/abi';
 import { SupportedTokenStandard, tokenStandardByTransferTopic } from './constants';
 import { Erc20Transfer, NftTransfer } from './log.types';
 
@@ -14,7 +12,7 @@ export function decodeNftTransfer(log: providers.Log): NftTransfer[] {
     const tokenStandard = tokenStandardByTransferTopic[topic];
     switch (tokenStandard) {
       case SupportedTokenStandard.ERC721: {
-        const iface = new ethers.utils.Interface(erc721Abi);
+        const iface = new ethers.utils.Interface(ERC721ABI);
         const res = iface.parseLog(log);
         const [from, to, tokenId] = res.args;
         return [
@@ -37,7 +35,7 @@ export function decodeNftTransfer(log: providers.Log): NftTransfer[] {
 
 export function decodeErc20Transfer(log: providers.Log): Erc20Transfer[] {
   try {
-    const iface = new ethers.utils.Interface(erc20Abi);
+    const iface = new ethers.utils.Interface(ERC20ABI);
     const res = iface.parseLog(log);
     const [src, dst, wad] = res.args;
     const currency = log.address.toLowerCase();
@@ -56,7 +54,7 @@ export function decodeErc20Transfer(log: providers.Log): Erc20Transfer[] {
 
 export function decodeMatchOrderFulfilled(log: providers.Log): Omit<MatchOrderFulfilledEvent, 'chainId'>[] {
   try {
-    const iface = new ethers.utils.Interface(infinityExchangeAbi);
+    const iface = new ethers.utils.Interface(InfinityExchangeABI);
     const res = iface.parseLog(log);
     const [sellOrderHash, buyOrderHash, seller, buyer, complication, currency, amountBigNumberish] = res.args;
     const amount = BigNumber.from(amountBigNumberish).toString();

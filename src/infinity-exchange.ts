@@ -9,8 +9,7 @@ import {
 } from '@infinityxyz/lib/types/core';
 import { getExchangeAddress, getTxnCurrencyAddress } from '@infinityxyz/lib/utils/orders';
 import { BigNumber, BigNumberish, Contract, ethers, providers } from 'ethers';
-import { erc20Abi } from './abi/erc20.abi';
-import { erc721Abi } from './abi/erc721.abi';
+import { ERC20ABI, ERC721ABI, InfinityExchangeABI } from '@infinityxyz/lib/abi';
 import { MAX_GAS_LIMIT } from './utils/constants';
 import {
   BundleCallDataEncoder,
@@ -30,7 +29,6 @@ import {
 import { getErrorMessage } from './utils/general';
 import { formatEther, parseEther } from 'ethers/lib/utils';
 import { InfinityOBComplicationABI } from '@infinityxyz/lib/abi/infinityOBComplication';
-import { infinityExchangeAbi } from './abi/infinity-exchange.abi';
 import { getOneToManyOrderIntersection } from './utils/intersection';
 
 type InvalidBundleItem = {
@@ -47,7 +45,7 @@ export class InfinityExchange {
   constructor(private providers: Record<ChainId, providers.JsonRpcProvider>) {
     this.contracts = new Map();
     for (const [chainId, provider] of Object.entries(providers) as [ChainId, providers.JsonRpcProvider][]) {
-      const contract = new Contract(InfinityExchange.getExchangeAddress(chainId), infinityExchangeAbi, provider);
+      const contract = new Contract(InfinityExchange.getExchangeAddress(chainId), InfinityExchangeABI, provider);
       this.contracts.set(chainId, contract);
     }
   }
@@ -251,7 +249,7 @@ export class InfinityExchange {
 
           for (const [buyer, currencies] of Object.entries(buysByAddress)) {
             for (const [currency, expectedCost] of Object.entries(currencies)) {
-              const contract = new ethers.Contract(currency, erc20Abi, provider);
+              const contract = new ethers.Contract(currency, ERC20ABI, provider);
               const allowance: BigNumberish = await contract.allowance(buyer, operator);
 
               if (BigNumber.from(allowance).lt(expectedCost)) {
@@ -344,7 +342,7 @@ export class InfinityExchange {
           }
           for (const { nfts, signerAddress } of ownerNfts) {
             for (const { collection, tokens } of nfts) {
-              const erc721Contract = new ethers.Contract(collection, erc721Abi, provider);
+              const erc721Contract = new ethers.Contract(collection, ERC721ABI, provider);
               const isApproved = await erc721Contract.isApprovedForAll(signerAddress, operator);
               if (!isApproved) {
                 return {
