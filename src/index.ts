@@ -1,11 +1,10 @@
 import {
-  ChainId,
   FirestoreOrderMatchStatus,
   MatchOrderFulfilledEvent,
   OrderMatchStateSuccess
 } from '@infinityxyz/lib/types/core';
 import { BigNumber } from 'ethers';
-import { getBroadcasters } from './broadcasters.config';
+import { enabledChainIds, getBroadcasters, SupportedChainId } from './broadcasters.config';
 import { WEBHOOK_URL } from './utils/constants';
 import { relayErrorToEmbed } from './discord/relay-error-to-embed';
 import { sendWebhook } from './discord/webhook';
@@ -26,11 +25,13 @@ async function main() {
 
   firestoreProvider.on(TransactionProviderEvent.Update, (event) => {
     const chainId = event.item.chainId;
-    const broadcaster = chainIdBroadcasters[chainId as ChainId.Mainnet | ChainId.Goerli];
-    if (broadcaster) {
-      broadcaster.add(event.item);
-    } else {
-      console.error(`Unsupported chainId: ${chainId}`);
+    if (enabledChainIds.includes(chainId as SupportedChainId)) {
+      const broadcaster = chainIdBroadcasters[chainId as SupportedChainId];
+      if (broadcaster) {
+        broadcaster.add(event.item);
+      } else {
+        console.error(`Unsupported chainId: ${chainId}`);
+      }
     }
   });
 
@@ -41,7 +42,9 @@ async function main() {
   });
 
   for (const broadcaster of Object.values(chainIdBroadcasters)) {
-    broadcaster.start();
+    if (enabledChainIds.includes(broadcaster.chainId as SupportedChainId)) {
+      broadcaster.start();
+    }
   }
 
   await firestoreProvider.start();

@@ -73,24 +73,9 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
     }
   }
 
-  async orderCompleted(id: string, status: FirestoreOrderMatchStatus): Promise<void> {
-    const matchRef = this.db.collection(firestoreConstants.ORDER_MATCHES_COLL).doc(id);
-    await matchRef.update({ status });
-  }
-
   async updateOrderMatch(id: string, state: Partial<OrderMatchState>) {
     const matchRef = this.db.collection(firestoreConstants.ORDER_MATCHES_COLL).doc(id);
     await matchRef.set({ state }, { merge: true });
-  }
-
-  async transactionCompleted(id: string): Promise<void> {
-    try {
-      await this.deleteOrderMatch(id);
-      // TODO should we mark the order as invalid once it has been fulfilled?
-      // TODO how do we know that this has been completed and it wasn't just skipped?
-    } catch (err) {
-      console.error(err);
-    }
   }
 
   private async handleOrderMatchUpdate(id: string, match: FirestoreOrderMatch): Promise<void> {

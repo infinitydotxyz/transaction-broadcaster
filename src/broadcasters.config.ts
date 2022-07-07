@@ -8,8 +8,9 @@ import { FlashbotsBroadcasterOptions } from './flashbots-broadcaster/flashbots-b
 import { TxBundlerPool, TxBundlerPoolOptions } from './flashbots-broadcaster/tx-bundler-pool';
 import { InfinityExchange } from './infinity-exchange';
 
-// type SupportedChainId = ChainId.Mainnet | ChainId.Goerli;
-type SupportedChainId = ChainId.Mainnet | ChainId.Goerli;
+export type SupportedChainId = ChainId.Mainnet | ChainId.Goerli;
+
+export const enabledChainIds = [ChainId.Goerli]; // TODO adi enable mainnet for prod
 
 const txBundlerPoolOptions: TxBundlerPoolOptions = {
   minBundleSize: {
