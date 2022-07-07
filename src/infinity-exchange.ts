@@ -19,6 +19,7 @@ import {
   BundleOrdersEncoder,
   BundleType,
   BundleVerifier,
+  InvalidTransactionRequest,
   MatchOrdersArgs,
   MatchOrdersBundleItem,
   MatchOrdersOneToManyArgs,
@@ -94,7 +95,7 @@ export class InfinityExchange {
     const buildBundles = async (
       bundleItems: T[],
       numBundles: number
-    ): Promise<{ txRequests: TransactionRequest[]; invalidBundleItems: T[] }> => {
+    ): Promise<{ txRequests: TransactionRequest[]; invalidBundleItems: InvalidTransactionRequest<T>[] }> => {
       const bundleArgs = bundleItemsToArgs(bundleItems, numBundles);
       const transactionRequests: TransactionRequest[] = (
         await Promise.all(
@@ -140,9 +141,9 @@ export class InfinityExchange {
     const encoder: BundleOrdersEncoder<T> = async (
       bundleItems: T[],
       minBundleSize: number
-    ): Promise<{ txRequests: TransactionRequest[]; invalidBundleItems: T[] }> => {
+    ): Promise<{ txRequests: TransactionRequest[]; invalidBundleItems: InvalidTransactionRequest<T>[] }> => {
       let validBundleItems: BundleItemWithCurrentPrice[] = [];
-      let invalidBundleItems: InvalidBundleItem[] = [];
+      let invalidBundleItems: InvalidTransactionRequest<T>[] = [];
 
       console.log(
         `Received: ${bundleItems.length} valid bundle items and ${invalidBundleItems.length} invalid bundle items`
@@ -151,13 +152,11 @@ export class InfinityExchange {
       // TODO it would be more scalable to call an external service to check bundle item validity
       const { validBundleItems: validBundleItemsAfterVerification, invalidBundleItems: invalidBundleItemsFromVerify } =
         await verifyBundleItems(bundleItems, chainId);
-      const invalidBundleItemsFromVerifyWithError = invalidBundleItemsFromVerify.map((invalidItem) => {
+      const invalidBundleItemsFromVerifyWithError: InvalidTransactionRequest<T>[] = invalidBundleItemsFromVerify.map((invalidItem) => {
         return {
-          bundleItem: invalidItem,
-          orderError: {
-            code: FirestoreOrderMatchErrorCode.OrderInvalid,
-            error: 'Order match not valid for one or more orders'
-          }
+          item: invalidItem,
+          code: FirestoreOrderMatchErrorCode.OrderInvalid,
+          error: 'Order match not valid for one or more orders'
         };
       });
       validBundleItems = validBundleItemsAfterVerification;
@@ -172,7 +171,7 @@ export class InfinityExchange {
         invalidBundleItems: invalidBundleItemsAfterNftApproval
       } = await this.checkNftSellerApprovalAndBalance(validBundleItems, chainId);
       validBundleItems = validBundleItemsAfterNftApproval;
-      invalidBundleItems = [...invalidBundleItems, ...invalidBundleItemsAfterNftApproval];
+      invalidBundleItems = [...invalidBundleItems, ...invalidBundleItemsAfterNftApproval as InvalidTransactionRequest<T>[]];
 
       console.log(
         `Have ${validBundleItems.length} valid bundle items and ${invalidBundleItems.length} invalid bundle items after checking nft approval and balance`
@@ -183,7 +182,7 @@ export class InfinityExchange {
         invalidBundleItems: invalidBundleItemsFromCurrencyCheck
       } = await this.checkNftBuyerApprovalAndBalance(validBundleItems, chainId);
       validBundleItems = validBundleItemsAfterCurrencyCheck as unknown as BundleItemWithCurrentPrice[];
-      invalidBundleItems = [...invalidBundleItems, ...invalidBundleItemsFromCurrencyCheck];
+      invalidBundleItems = [...invalidBundleItems, ...invalidBundleItemsFromCurrencyCheck as InvalidTransactionRequest<T>[]];
 
       console.log(
         `Have ${validBundleItems.length} valid bundle items and ${invalidBundleItems.length} invalid bundle items after checking currency approval and balance`
@@ -192,7 +191,7 @@ export class InfinityExchange {
       console.log(JSON.stringify(invalidBundleItems, null, 2));
 
       if (validBundleItems.length < minBundleSize) {
-        return { txRequests: [] as TransactionRequest[], invalidBundleItems: invalidBundleItemsFromVerify };
+        return { txRequests: [] as TransactionRequest[], invalidBundleItems: invalidBundleItems };
       }
 
       const { txRequests, invalidBundleItems: invalidBundleItemsFromBuild } = await buildBundles(
@@ -200,7 +199,9 @@ export class InfinityExchange {
         1
       );
 
-      return { txRequests, invalidBundleItems: [...invalidBundleItemsFromVerify, ...invalidBundleItemsFromBuild] };
+      invalidBundleItems = [...invalidBundleItems, ...invalidBundleItemsFromBuild];
+
+      return { txRequests, invalidBundleItems };
     };
 
     return encoder;
@@ -209,7 +210,7 @@ export class InfinityExchange {
   private async checkNftBuyerApprovalAndBalance(
     bundleItems: BundleItemWithCurrentPrice[],
     chainId: ChainId
-  ): Promise<{ validBundleItems: BundleItemWithCurrentPrice[]; invalidBundleItems: InvalidBundleItem[] }> {
+  ): Promise<{ validBundleItems: BundleItemWithCurrentPrice[]; invalidBundleItems: InvalidTransactionRequest<BundleItem>[] }> {
     const provider = this.getProvider(chainId);
     const operator = this.getContract(chainId).address;
     console.log(`Operator: ${operator}`);
@@ -293,16 +294,17 @@ export class InfinityExchange {
     );
 
     return results.reduce(
-      (acc: { validBundleItems: BundleItemWithCurrentPrice[]; invalidBundleItems: InvalidBundleItem[] }, result) => {
+      (acc: { validBundleItems: BundleItemWithCurrentPrice[]; invalidBundleItems: InvalidTransactionRequest<BundleItem>[] }, result) => {
         if (result.isValid) {
           return {
             ...acc,
             validBundleItems: [...acc.validBundleItems, result.bundleItem]
           };
         }
-        const invalidBundleItem = {
-          bundleItem: result.bundleItem,
-          orderError: result.orderError
+        const invalidBundleItem: InvalidTransactionRequest<BundleItem> = {
+          item: result.bundleItem,
+          error: result.orderError.error,
+          code: result.orderError.code
         };
         return {
           ...acc,
@@ -316,7 +318,7 @@ export class InfinityExchange {
   private async checkNftSellerApprovalAndBalance(
     bundleItems: BundleItemWithCurrentPrice[],
     chainId: ChainId
-  ): Promise<{ validBundleItems: BundleItemWithCurrentPrice[]; invalidBundleItems: InvalidBundleItem[] }> {
+  ): Promise<{ validBundleItems: BundleItemWithCurrentPrice[]; invalidBundleItems: InvalidTransactionRequest<BundleItem>[] }> {
     const provider = this.getProvider(chainId);
     const operator = this.getContract(chainId).address;
     type BundleItemIsValid = { bundleItem: BundleItemWithCurrentPrice; isValid: true };
@@ -386,7 +388,7 @@ export class InfinityExchange {
     );
 
     return results.reduce(
-      (acc: { validBundleItems: BundleItemWithCurrentPrice[]; invalidBundleItems: InvalidBundleItem[] }, result) => {
+      (acc: { validBundleItems: BundleItemWithCurrentPrice[]; invalidBundleItems: InvalidTransactionRequest<BundleItem>[] }, result) => {
         if (result.isValid) {
           return {
             ...acc,
@@ -394,8 +396,9 @@ export class InfinityExchange {
           };
         }
         const invalidBundleItem = {
-          bundleItem: result.bundleItem,
-          orderError: result.orderError
+          item: result.bundleItem,
+          code: result.orderError.code,
+          error: result.orderError.error
         };
         return {
           ...acc,

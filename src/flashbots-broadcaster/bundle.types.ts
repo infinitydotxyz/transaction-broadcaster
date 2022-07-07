@@ -68,7 +68,7 @@ export type BundleItemsToArgsTransformer<BundleItem, Args extends Array<unknown>
 export type BundleOrdersEncoder<T> = (
   bundleItems: T[],
   minBundleSize: number
-) => Promise<{ txRequests: TransactionRequest[]; invalidBundleItems: T[] }>;
+) => Promise<{ txRequests: TransactionRequest[]; invalidBundleItems: InvalidTransactionRequest<T>[] }>;
 
 export type BundleEncoder = {
   [BundleType.MatchOrders]: BundleOrdersEncoder<MatchOrdersBundleItem>;
@@ -85,3 +85,10 @@ export type BundleTypeToBundleItem = {
 export type MatchOrdersArgs = [MakerOrder[], MakerOrder[], ChainNFTs[][]];
 export type MatchOrdersOneToOneArgs = [MakerOrder[], MakerOrder[]];
 export type MatchOrdersOneToManyArgs = [MakerOrder, MakerOrder[]];
+
+
+export interface InvalidTransactionRequest<T> {
+  item: T;
+  code: number;
+  error: string;
+}

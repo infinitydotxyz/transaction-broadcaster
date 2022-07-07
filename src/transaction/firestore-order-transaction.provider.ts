@@ -10,7 +10,8 @@ import {
   FirestoreOrderMatchOneToMany,
   FirestoreOrderMatchOneToOne,
   FirestoreOrderMatchStatus,
-  OrderMatchState
+  OrderMatchState,
+  OrderMatchStateError
 } from '@infinityxyz/lib/types/core';
 import { TransactionProviderEvent } from './transaction.provider.interface';
 import { getExchangeAddress } from '@infinityxyz/lib/utils/orders';
@@ -64,15 +65,6 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
     });
   }
 
-  async transactionReverted(id: string): Promise<void> {
-    try {
-      // TODO handle orders that are no longer valid
-      await this.deleteOrderMatch(id);
-    } catch (err) {
-      console.error(err);
-    }
-  }
-
   async updateOrderMatch(id: string, state: Partial<OrderMatchState>, batch?: FirebaseFirestore.WriteBatch) {
     const matchRef = this.db.collection(firestoreConstants.ORDER_MATCHES_COLL).doc(id);
     if (batch) {
@@ -88,6 +80,31 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
       await this.updateOrderMatch(id, state, batch);
     }
     await batch.commit();
+  }
+
+  async updateInvalidOrderMatches(updates: { id: string; state: Partial<OrderMatchStateError> }[]) {
+    try {
+      /**
+       * use a transaction to make sure we are only marking currently active orders as invalid
+       */
+      await this.db.runTransaction(async (tx) => {
+        const updatesWithIds = updates.filter((update) => !!update.id);
+        const orderMatches = await Promise.all(
+          updatesWithIds.map((item) => tx.get(this.db.collection(firestoreConstants.ORDER_MATCHES_COLL).doc(item.id)))
+        );
+        let index = 0;
+        for (const orderMatchSnap of orderMatches) {
+          const update = updatesWithIds[index];
+          index += 1;
+          const orderMatch = orderMatchSnap.data() as FirestoreOrderMatch | undefined;
+          if (orderMatch?.state?.status === FirestoreOrderMatchStatus.Active) {
+            tx.set(orderMatchSnap.ref, { state: update.state }, { merge: true });
+          }
+        }
+      });
+    } catch (err) {
+      console.error(err);
+    }
   }
 
   private async handleOrderMatchUpdate(id: string, match: FirestoreOrderMatch): Promise<void> {

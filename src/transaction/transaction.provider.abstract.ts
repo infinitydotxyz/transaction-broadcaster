@@ -23,7 +23,5 @@ export abstract class TransactionProvider implements ITransactionProvider {
     this.emitter.emit(event, data);
   }
 
-  abstract transactionReverted(id: string): Promise<void>;
-
   abstract start(): Promise<void>;
 }

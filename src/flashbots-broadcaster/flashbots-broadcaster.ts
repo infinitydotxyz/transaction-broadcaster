@@ -23,7 +23,6 @@ import {
   FlashbotsBroadcasterOptions
 } from './flashbots-broadcaster-options.types';
 import { ChainId, MatchOrderFulfilledEvent } from '@infinityxyz/lib/types/core';
-import { EthWethSwapper } from '../eth-weth-swapper';
 import { decodeErc20Transfer, decodeMatchOrderFulfilled, decodeNftTransfer } from '../utils/log-decoders';
 import { Erc20Transfer, NftTransfer } from '../utils/log.types';
 
@@ -38,8 +37,6 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
   private readonly settings: FlashbotsBroadcasterSettings;
   private shutdown?: () => Promise<void>;
   private emitter: EventEmitter;
-
-  private swapper: EthWethSwapper;
 
   static async create<T extends { id: string }>(txPool: TxPool<T>, options: FlashbotsBroadcasterOptions) {
     const authSigner = new Wallet(options.authSigner.privateKey, options.provider);
@@ -79,7 +76,6 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
     this.emitter = new EventEmitter();
     this.txPool = options.txPool;
     this.chainId = `${this.network.chainId}` as ChainId;
-    this.swapper = new EthWethSwapper(this.provider, this.signer);
   }
 
   /**
@@ -295,7 +291,13 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
     const maxFeePerGas = gweiToWei(maxBaseFeeGwei);
 
     // TODO handle invalid bundle items
-    const transactions = (await this.txPool.getTransactions({ maxGasFeeGwei: maxFeePerGasGwei })).txRequests.map(
+    const { txRequests, invalid } = await this.txPool.getTransactions({ maxGasFeeGwei: maxFeePerGasGwei });
+
+    if(invalid && invalid.length > 0 ) {
+      this.emit(FlashbotsBroadcasterEvent.InvalidBundleItems, {invalidBundleItems: invalid});
+    }
+
+    const transactions = txRequests.map(
       (tx) => {
         const txRequest: providers.TransactionRequest = {
           ...tx,

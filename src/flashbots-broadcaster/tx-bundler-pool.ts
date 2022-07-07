@@ -1,7 +1,7 @@
 import { TransactionRequest } from '@ethersproject/abstract-provider';
 import { ChainNFTs } from '@infinityxyz/lib/types/core/OBOrder';
 import { NftTransfer } from '../utils/log.types';
-import { BundleEncoder, BundleItem, BundleOrdersEncoder, BundleType, BundleTypeToBundleItem } from './bundle.types';
+import { BundleEncoder, BundleItem, BundleOrdersEncoder, BundleType, BundleTypeToBundleItem, InvalidTransactionRequest } from './bundle.types';
 import { TxPool } from './tx-pool.interface';
 
 export interface TxBundlerPoolOptions {
@@ -87,10 +87,10 @@ export class TxBundlerPool implements TxPool<BundleItem> {
 
   async getTransactions(options: {
     maxGasFeeGwei: number;
-  }): Promise<{ txRequests: TransactionRequest[]; invalid: BundleItem[] }> {
+  }): Promise<{ txRequests: TransactionRequest[]; invalid: InvalidTransactionRequest<BundleItem>[] }> {
     const bundleTypes = Array.from(this.bundlePool.entries());
     let txRequests: TransactionRequest[] = [];
-    let invalid: BundleItem[] = [];
+    let invalid: InvalidTransactionRequest<BundleItem>[] = [];
     for (const [bundleType, bundle] of bundleTypes) {
       const bundleItemsUnderUnderGasPrice = (
         Array.from(bundle.values()) as [BundleTypeToBundleItem[BundleType]]

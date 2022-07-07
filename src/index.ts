@@ -1,6 +1,8 @@
 import {
   FirestoreOrderMatchStatus,
   MatchOrderFulfilledEvent,
+  OrderMatchState,
+  OrderMatchStateError,
   OrderMatchStateSuccess
 } from '@infinityxyz/lib/types/core';
 import { BigNumber } from 'ethers';
@@ -60,7 +62,27 @@ function registerBroadcasterListeners(
   broadcaster.on(FlashbotsBroadcasterEvent.Stopping, console.log);
   broadcaster.on(FlashbotsBroadcasterEvent.Stopped, console.log);
   broadcaster.on(FlashbotsBroadcasterEvent.Block, console.log);
-  broadcaster.on(FlashbotsBroadcasterEvent.SubmittingBundle, console.log);
+  broadcaster.on(FlashbotsBroadcasterEvent.InvalidBundleItems, async (event) => {
+    try {
+      const updates = event.invalidBundleItems.map(({ item, error, code }) => {
+        const state: Partial<OrderMatchStateError> = {
+          status: FirestoreOrderMatchStatus.Error,
+          error: error,
+          code: code
+        };
+        const id = item.id;
+        return { id, state };
+      });
+      console.log(`Found: ${updates.length} invalid bundle items`); 
+      console.table(updates.map((item) => ({id: item.id, error: item.state.error})));
+      await firestoreProvider.updateInvalidOrderMatches(updates);
+    } catch (err) {
+      console.error(err);
+    }
+  });
+  broadcaster.on(FlashbotsBroadcasterEvent.SubmittingBundle, (event) => {
+    console.log(`Submitting bundle of ${event.transactions.length} transactions for block ${event.blockNumber}`);
+  });
   broadcaster.on(FlashbotsBroadcasterEvent.RelayError, (event) => {
     if (WEBHOOK_URL) {
       const embed = relayErrorToEmbed(event, broadcaster.chainId);
