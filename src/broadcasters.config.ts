@@ -13,9 +13,10 @@ export type SupportedChainId = ChainId.Mainnet | ChainId.Goerli;
 export const enabledChainIds = [ChainId.Goerli]; // TODO adi enable mainnet for prod
 
 const txBundlerPoolOptions: TxBundlerPoolOptions = {
+  // can vary these if needed
   minBundleSize: {
-    [BundleType.MatchOrders]: 1, // TODO increase this
-    [BundleType.MatchOrdersOneToOne]: 1, // TODO increase this
+    [BundleType.MatchOrders]: 3,
+    [BundleType.MatchOrdersOneToOne]: 3,
     [BundleType.MatchOrdersOneToMany]: 1
   }
 };
@@ -53,12 +54,14 @@ export const flashbotsOptionsGoerli: FlashbotsBroadcasterOptions = {
   priorityFee: 1
 };
 
-const chainIdProviders: Record<SupportedChainId, providers.JsonRpcProvider> = {
+const chainIdProviders: Record<SupportedChainId, providers.StaticJsonRpcProvider> = {
   [ChainId.Mainnet]: getProvider(ChainId.Mainnet),
   [ChainId.Goerli]: getProvider(ChainId.Goerli)
 };
 
-export const infinityExchange = new InfinityExchange(chainIdProviders as Record<ChainId, providers.JsonRpcProvider>);
+export const infinityExchange = new InfinityExchange(
+  chainIdProviders as Record<ChainId, providers.StaticJsonRpcProvider>
+);
 
 const mainnetSigner = new Wallet(SIGNER_MAINNET, chainIdProviders[ChainId.Mainnet]);
 const goerliSigner = new Wallet(SIGNER_GOERLI, chainIdProviders[ChainId.Goerli]);

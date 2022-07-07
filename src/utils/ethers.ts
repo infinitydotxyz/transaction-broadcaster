@@ -2,7 +2,7 @@ import { ChainId } from '@infinityxyz/lib/types/core/ChainId';
 import { providers } from 'ethers';
 import { getEnvVariable } from './constants';
 
-const providersByChainId: Map<ChainId, providers.JsonRpcProvider> = new Map();
+const providersByChainId: Map<ChainId, providers.StaticJsonRpcProvider> = new Map();
 
 export function getProviderUrl(chainId: ChainId) {
   let envVariable = '';
@@ -22,13 +22,13 @@ export function getProviderUrl(chainId: ChainId) {
   return providerUrl;
 }
 
-export function getProvider(chainId: ChainId): providers.JsonRpcProvider {
+export function getProvider(chainId: ChainId): providers.StaticJsonRpcProvider {
   let provider = providersByChainId.get(chainId);
 
   if (!provider) {
     const chainIdNum = parseInt(chainId, 10);
     const providerUrl = getProviderUrl(chainId);
-    provider = new providers.JsonRpcProvider(providerUrl, chainIdNum);
+    provider = new providers.StaticJsonRpcProvider(providerUrl, chainIdNum);
     providersByChainId.set(chainId, provider);
   }
   return provider;

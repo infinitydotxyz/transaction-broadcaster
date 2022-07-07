@@ -17,7 +17,7 @@ export interface FlashbotsBroadcasterOptions {
     privateKey: string;
   };
 
-  provider: providers.JsonRpcProvider;
+  provider: providers.StaticJsonRpcProvider;
 
   /**
    * number of blocks in the future to submit transactions for
@@ -53,7 +53,7 @@ export type FlashbotsBroadcasterSettings = Required<
 export interface FlashbotsBroadcasterInternalOptions<T extends { id: string }> extends FlashbotsBroadcasterSettings {
   flashbotsProvider: FlashbotsBundleProvider;
 
-  provider: providers.JsonRpcProvider;
+  provider: providers.StaticJsonRpcProvider;
 
   authSigner: Wallet;
 

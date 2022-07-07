@@ -1,5 +1,4 @@
 import firebaseAdmin, { ServiceAccount } from 'firebase-admin';
-// TODO adi change for prod
 import * as serviceAccount from '../creds/nftc-dev-firebase.json';
 
 let db: FirebaseFirestore.Firestore;

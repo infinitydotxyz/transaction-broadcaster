@@ -43,7 +43,7 @@ export class InfinityExchange {
     return [...this.contracts.values()].map((contract) => contract.address);
   }
 
-  constructor(private providers: Record<ChainId, providers.JsonRpcProvider>) {
+  constructor(private providers: Record<ChainId, providers.StaticJsonRpcProvider>) {
     this.contracts = new Map();
     for (const [chainId, provider] of Object.entries(providers) as [ChainId, providers.JsonRpcProvider][]) {
       const contract = new Contract(InfinityExchange.getExchangeAddress(chainId), InfinityExchangeABI, provider);
