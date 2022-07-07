@@ -116,7 +116,6 @@ export class InfinityExchange {
                 type: 2
               };
             } catch (err: any) {
-              console.log(`Failed to estimate gas for bundle! \n\n`);
               if ('error' in err && 'error' in err.error) {
                 console.log(err.error.error);
               } else {
@@ -187,8 +186,6 @@ export class InfinityExchange {
       console.log(
         `Have ${validBundleItems.length} valid bundle items and ${invalidBundleItems.length} invalid bundle items after checking currency approval and balance`
       );
-
-      console.log(JSON.stringify(invalidBundleItems, null, 2));
 
       if (validBundleItems.length < minBundleSize) {
         return { txRequests: [] as TransactionRequest[], invalidBundleItems: invalidBundleItems };
@@ -592,7 +589,6 @@ export class InfinityExchange {
           );
           try {
             const [isValid, , , execPrice] = await complication.canExecMatchOneToOne(bundleItem.sell, bundleItem.buy);
-            console.log(`Bundle item is valid:${isValid}`);
             return {
               bundleItem,
               isValid,
