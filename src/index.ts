@@ -1,7 +1,6 @@
 import {
   FirestoreOrderMatchStatus,
   MatchOrderFulfilledEvent,
-  OrderMatchState,
   OrderMatchStateError,
   OrderMatchStateSuccess
 } from '@infinityxyz/lib/types/core';
@@ -73,8 +72,8 @@ function registerBroadcasterListeners(
         const id = item.id;
         return { id, state };
       });
-      console.log(`Found: ${updates.length} invalid bundle items`); 
-      console.table(updates.map((item) => ({id: item.id, error: item.state.error})));
+      console.log(`Found: ${updates.length} invalid bundle items`);
+      console.table(updates.map((item) => ({ id: item.id, error: item.state.error })));
       await firestoreProvider.updateInvalidOrderMatches(updates);
     } catch (err) {
       console.error(err);

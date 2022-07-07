@@ -1,7 +1,14 @@
 import { TransactionRequest } from '@ethersproject/abstract-provider';
 import { ChainNFTs } from '@infinityxyz/lib/types/core/OBOrder';
 import { NftTransfer } from '../utils/log.types';
-import { BundleEncoder, BundleItem, BundleOrdersEncoder, BundleType, BundleTypeToBundleItem, InvalidTransactionRequest } from './bundle.types';
+import {
+  BundleEncoder,
+  BundleItem,
+  BundleOrdersEncoder,
+  BundleType,
+  BundleTypeToBundleItem,
+  InvalidTransactionRequest
+} from './bundle.types';
 import { TxPool } from './tx-pool.interface';
 
 export interface TxBundlerPoolOptions {

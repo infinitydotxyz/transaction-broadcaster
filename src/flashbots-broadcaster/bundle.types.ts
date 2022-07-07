@@ -86,7 +86,6 @@ export type MatchOrdersArgs = [MakerOrder[], MakerOrder[], ChainNFTs[][]];
 export type MatchOrdersOneToOneArgs = [MakerOrder[], MakerOrder[]];
 export type MatchOrdersOneToManyArgs = [MakerOrder, MakerOrder[]];
 
-
 export interface InvalidTransactionRequest<T> {
   item: T;
   code: number;
