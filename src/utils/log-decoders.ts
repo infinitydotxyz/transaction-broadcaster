@@ -1,6 +1,6 @@
-import { MatchOrderFulfilledEvent } from '@infinityxyz/lib/types/core';
+import { ChainNFTs, MatchOrderFulfilledEvent } from '@infinityxyz/lib/types/core';
 import { ethers } from 'ethers';
-import { BigNumber, providers } from 'ethers/lib/ethers';
+import { BigNumber, BigNumberish, providers } from 'ethers/lib/ethers';
 import { ERC20ABI, ERC721ABI, InfinityExchangeABI } from '@infinityxyz/lib/abi';
 import { SupportedTokenStandard, tokenStandardByTransferTopic } from './constants';
 import { Erc20Transfer, NftTransfer } from './log.types';
@@ -56,7 +56,25 @@ export function decodeMatchOrderFulfilled(log: providers.Log): Omit<MatchOrderFu
   try {
     const iface = new ethers.utils.Interface(InfinityExchangeABI);
     const res = iface.parseLog(log);
-    const [sellOrderHash, buyOrderHash, seller, buyer, complication, currency, amountBigNumberish] = res.args;
+    // token id, quantity
+    type NftTokenArg = [BigNumberish, BigNumberish];
+    type NftsTokensArg = NftTokenArg[];
+    type NftCollectionArg = [string, NftsTokensArg];
+    type NftsArg = NftCollectionArg[];
+    type Args = [string, string, string, string, string, string, BigNumberish,  NftsArg];
+    const [sellOrderHash, buyOrderHash, seller, buyer, complication, currency, amountBigNumberish, nfts] = res.args as Args;
+
+    const decodedNfts: ChainNFTs[] = nfts.map(([collectionAddress, tokensArg]) => {
+      const collection = collectionAddress.toLowerCase();
+      const tokens = tokensArg.map(([tokenId, quantity]) => {
+        const id = BigNumber.from(tokenId).toString();
+        const numTokens = BigNumber.from(quantity).toNumber();
+        return { tokenId: id, numTokens };
+      });
+
+      return { collection, tokens };
+    });
+
     const amount = BigNumber.from(amountBigNumberish).toString();
     return [
       {
@@ -69,7 +87,8 @@ export function decodeMatchOrderFulfilled(log: providers.Log): Omit<MatchOrderFu
         seller: seller.toLowerCase(),
         complication: complication.toLowerCase(),
         amount,
-        currencyAddress: currency.toLowerCase()
+        currencyAddress: currency.toLowerCase(),
+        nfts: decodedNfts
       }
     ];
   } catch (err) {

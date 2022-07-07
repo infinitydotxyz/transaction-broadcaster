@@ -331,24 +331,11 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
 
   private async simulateBundle(
     transactions: providers.TransactionRequest[],
-    alreadySwapped = false
   ): Promise<SimulatedEvent> {
     const signedBundle = await this.getSignedBundle(transactions);
     const simulationResult = await this.flashbotsProvider.simulate(signedBundle, 'latest');
 
     if ('error' in simulationResult) {
-      /**
-       * attempt to create a tx to swap weth for eth, place it at the beginning of the bundle
-       * and try again
-       */
-      if (simulationResult.error.code === RelayErrorCode.InsufficientFunds && !alreadySwapped) {
-        // const wethBalance = await this.swapper.checkBalance(Token.Weth); // TODO monitor balance of match executor
-        // if (wethBalance.gte(ETHER.div(10))) {
-        //   const transferRequest = await this.swapper.swapWethForEth(wethBalance.toString());
-        //   transactions.unshift(transferRequest);
-        //   return this.simulateBundle(transactions, true);
-        // }
-      }
       const relayError: RelayErrorEvent = {
         message: simulationResult.error.message,
         code: simulationResult.error.code
