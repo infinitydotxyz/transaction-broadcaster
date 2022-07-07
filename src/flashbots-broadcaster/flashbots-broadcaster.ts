@@ -290,9 +290,7 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
     const maxFeePerGasGwei = Math.ceil(maxBaseFeeGwei + this.settings.priorityFee);
     const maxFeePerGas = gweiToWei(maxBaseFeeGwei);
 
-    // TODO handle invalid bundle items
     const { txRequests, invalid } = await this.txPool.getTransactions({ maxGasFeeGwei: maxFeePerGasGwei });
-
     if(invalid && invalid.length > 0 ) {
       this.emit(FlashbotsBroadcasterEvent.InvalidBundleItems, {invalidBundleItems: invalid});
     }
