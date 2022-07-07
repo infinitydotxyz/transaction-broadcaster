@@ -75,14 +75,14 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
 
   async updateOrderMatch(id: string, state: Partial<OrderMatchState>, batch?: FirebaseFirestore.WriteBatch) {
     const matchRef = this.db.collection(firestoreConstants.ORDER_MATCHES_COLL).doc(id);
-    if(batch) {
+    if (batch) {
       batch.set(matchRef, { state }, { merge: true });
     } else {
       await matchRef.set({ state }, { merge: true });
     }
   }
 
-  async updateOrderMatches(updates: {id: string, state: Partial<OrderMatchState>}[]) {
+  async updateOrderMatches(updates: { id: string; state: Partial<OrderMatchState> }[]) {
     const batch = this.db.batch();
     for (const { id, state } of updates) {
       await this.updateOrderMatch(id, state, batch);

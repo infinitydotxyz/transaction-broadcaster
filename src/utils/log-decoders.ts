@@ -61,8 +61,9 @@ export function decodeMatchOrderFulfilled(log: providers.Log): Omit<MatchOrderFu
     type NftsTokensArg = NftTokenArg[];
     type NftCollectionArg = [string, NftsTokensArg];
     type NftsArg = NftCollectionArg[];
-    type Args = [string, string, string, string, string, string, BigNumberish,  NftsArg];
-    const [sellOrderHash, buyOrderHash, seller, buyer, complication, currency, amountBigNumberish, nfts] = res.args as Args;
+    type Args = [string, string, string, string, string, string, BigNumberish, NftsArg];
+    const [sellOrderHash, buyOrderHash, seller, buyer, complication, currency, amountBigNumberish, nfts] =
+      res.args as Args;
 
     const decodedNfts: ChainNFTs[] = nfts.map(([collectionAddress, tokensArg]) => {
       const collection = collectionAddress.toLowerCase();

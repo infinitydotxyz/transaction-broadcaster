@@ -15,8 +15,7 @@ import {
   StartedEvent,
   SubmittingBundleEvent,
   SuccessfulBundleSubmission,
-  RevertReason,
-  RelayErrorCode
+  RevertReason
 } from './flashbots-broadcaster-emitter.types';
 import {
   FlashbotsBroadcasterSettings,
@@ -329,9 +328,7 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
     return signedBundle;
   }
 
-  private async simulateBundle(
-    transactions: providers.TransactionRequest[],
-  ): Promise<SimulatedEvent> {
+  private async simulateBundle(transactions: providers.TransactionRequest[]): Promise<SimulatedEvent> {
     const signedBundle = await this.getSignedBundle(transactions);
     const simulationResult = await this.flashbotsProvider.simulate(signedBundle, 'latest');
 

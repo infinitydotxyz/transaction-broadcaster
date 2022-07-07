@@ -54,7 +54,7 @@ void main();
 
 function registerBroadcasterListeners(
   broadcaster: FlashbotsBroadcaster<BundleItem>,
-  firestoreProvider: FirestoreOrderTransactionProvider,
+  firestoreProvider: FirestoreOrderTransactionProvider
 ) {
   broadcaster.on(FlashbotsBroadcasterEvent.Started, console.log);
   broadcaster.on(FlashbotsBroadcasterEvent.Stopping, console.log);
@@ -132,7 +132,9 @@ function registerBroadcasterListeners(
           };
         });
 
-        await firestoreProvider.updateOrderMatches(updates.map((item) => ({ id: item.id, state: item.orderMatchState })));
+        await firestoreProvider.updateOrderMatches(
+          updates.map((item) => ({ id: item.id, state: item.orderMatchState }))
+        );
       } catch (err) {
         console.log(err);
       }
