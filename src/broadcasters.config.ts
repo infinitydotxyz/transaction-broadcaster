@@ -10,7 +10,7 @@ import { InfinityExchange } from './infinity-exchange';
 
 export type SupportedChainId = ChainId.Mainnet | ChainId.Goerli;
 
-export const enabledChainIds = [ChainId.Goerli];
+export const enabledChainIds = [ChainId.Mainnet];
 
 const txBundlerPoolOptions: TxBundlerPoolOptions = {
   // can vary these if needed
