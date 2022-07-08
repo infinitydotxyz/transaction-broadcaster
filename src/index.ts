@@ -1,11 +1,11 @@
 import {
-  ChainId,
   FirestoreOrderMatchStatus,
   MatchOrderFulfilledEvent,
+  OrderMatchStateError,
   OrderMatchStateSuccess
 } from '@infinityxyz/lib/types/core';
 import { BigNumber } from 'ethers';
-import { getBroadcasters } from './broadcasters.config';
+import { enabledChainIds, getBroadcasters, SupportedChainId } from './broadcasters.config';
 import { WEBHOOK_URL } from './utils/constants';
 import { relayErrorToEmbed } from './discord/relay-error-to-embed';
 import { sendWebhook } from './discord/webhook';
@@ -26,11 +26,13 @@ async function main() {
 
   firestoreProvider.on(TransactionProviderEvent.Update, (event) => {
     const chainId = event.item.chainId;
-    const broadcaster = chainIdBroadcasters[chainId as ChainId.Mainnet | ChainId.Goerli];
-    if (broadcaster) {
-      broadcaster.add(event.item);
-    } else {
-      console.error(`Unsupported chainId: ${chainId}`);
+    if (enabledChainIds.includes(chainId as SupportedChainId)) {
+      const broadcaster = chainIdBroadcasters[chainId as SupportedChainId];
+      if (broadcaster) {
+        broadcaster.add(event.item);
+      } else {
+        console.error(`Unsupported chainId: ${chainId}`);
+      }
     }
   });
 
@@ -41,7 +43,9 @@ async function main() {
   });
 
   for (const broadcaster of Object.values(chainIdBroadcasters)) {
-    broadcaster.start();
+    if (enabledChainIds.includes(broadcaster.chainId as SupportedChainId)) {
+      broadcaster.start();
+    }
   }
 
   await firestoreProvider.start();
@@ -57,14 +61,33 @@ function registerBroadcasterListeners(
   broadcaster.on(FlashbotsBroadcasterEvent.Stopping, console.log);
   broadcaster.on(FlashbotsBroadcasterEvent.Stopped, console.log);
   broadcaster.on(FlashbotsBroadcasterEvent.Block, console.log);
-  broadcaster.on(FlashbotsBroadcasterEvent.SubmittingBundle, console.log);
+  broadcaster.on(FlashbotsBroadcasterEvent.InvalidBundleItems, async (event) => {
+    try {
+      const updates = event.invalidBundleItems.map(({ item, error, code }) => {
+        const state: Partial<OrderMatchStateError> = {
+          status: FirestoreOrderMatchStatus.Error,
+          error: error,
+          code: code
+        };
+        const id = item.id;
+        return { id, state };
+      });
+      console.log(`Found: ${updates.length} invalid bundle items`);
+      console.table(updates.map((item) => ({ id: item.id, error: item.state.error })));
+      await firestoreProvider.updateInvalidOrderMatches(updates);
+    } catch (err) {
+      console.error(err);
+    }
+  });
+  broadcaster.on(FlashbotsBroadcasterEvent.SubmittingBundle, (event) => {
+    console.log(`Submitting bundle of ${event.transactions.length} transactions for block ${event.blockNumber}`);
+  });
   broadcaster.on(FlashbotsBroadcasterEvent.RelayError, (event) => {
     if (WEBHOOK_URL) {
       const embed = relayErrorToEmbed(event, broadcaster.chainId);
       sendWebhook(WEBHOOK_URL, embed).catch(console.error);
     }
-    console.error(`Relay Error`);
-    console.error(JSON.stringify(event, null, 2));
+    console.error(`Relay Error: ${JSON.stringify(event, null, 2)}`);
   });
 
   broadcaster.on(FlashbotsBroadcasterEvent.Simulated, (event) => {
@@ -73,7 +96,7 @@ function registerBroadcasterListeners(
       Successful: ${event.successfulTransactions.length}. Reverted: ${event.revertedTransactions.length}.
       Gas Price: ${event.gasPrice.toString()} Total Gas Used: ${event.totalGasUsed}`);
     } catch (err) {
-      console.log(err);
+      console.error(err);
     }
   });
 
@@ -81,7 +104,6 @@ function registerBroadcasterListeners(
     if ('reason' in event) {
       console.error(event.reason);
     } else {
-      console.log(JSON.stringify(event, null, 2));
       try {
         const bundleItems = event.nftTransfers
           .map((transfer) => broadcaster.getBundleItemFromTransfer(transfer))
@@ -103,7 +125,8 @@ function registerBroadcasterListeners(
         );
 
         const updates = bundleItems.map((bundleItem) => {
-          const matchOrderEvents = matchOrdersFulfilledByBuyOrderHash[bundleItem.buyOrderHash.toLowerCase()];
+          const orderHash = 'orderHash' in bundleItem ? bundleItem.orderHash : bundleItem.buyOrderHash;
+          const matchOrderEvents = matchOrdersFulfilledByBuyOrderHash[orderHash];
           const firstMatchOrderEvent = matchOrderEvents?.[0];
           const txHash = firstMatchOrderEvent?.txHash ?? '';
           const amount = matchOrderEvents.reduce(
@@ -111,7 +134,7 @@ function registerBroadcasterListeners(
             BigNumber.from(0)
           );
           if (!txHash) {
-            console.error(`No txHash for ${bundleItem.buyOrderHash}`);
+            console.error(`No txHash for ${orderHash}`);
           }
           const orderMatchState: Pick<
             OrderMatchStateSuccess,
@@ -130,8 +153,8 @@ function registerBroadcasterListeners(
           };
         });
 
-        await Promise.allSettled(
-          updates.map(({ id, orderMatchState: update }) => firestoreProvider.updateOrderMatch(id, update))
+        await firestoreProvider.updateOrderMatches(
+          updates.map((item) => ({ id: item.id, state: item.orderMatchState }))
         );
       } catch (err) {
         console.log(err);

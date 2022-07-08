@@ -1,7 +1,14 @@
 import { TransactionRequest } from '@ethersproject/abstract-provider';
 import { ChainNFTs } from '@infinityxyz/lib/types/core/OBOrder';
 import { NftTransfer } from '../utils/log.types';
-import { BundleEncoder, BundleItem, BundleOrdersEncoder, BundleType, BundleTypeToBundleItem } from './bundle.types';
+import {
+  BundleEncoder,
+  BundleItem,
+  BundleOrdersEncoder,
+  BundleType,
+  BundleTypeToBundleItem,
+  InvalidTransactionRequest
+} from './bundle.types';
 import { TxPool } from './tx-pool.interface';
 
 export interface TxBundlerPoolOptions {
@@ -87,10 +94,10 @@ export class TxBundlerPool implements TxPool<BundleItem> {
 
   async getTransactions(options: {
     maxGasFeeGwei: number;
-  }): Promise<{ txRequests: TransactionRequest[]; invalid: BundleItem[] }> {
+  }): Promise<{ txRequests: TransactionRequest[]; invalid: InvalidTransactionRequest<BundleItem>[] }> {
     const bundleTypes = Array.from(this.bundlePool.entries());
     let txRequests: TransactionRequest[] = [];
-    let invalid: BundleItem[] = [];
+    let invalid: InvalidTransactionRequest<BundleItem>[] = [];
     for (const [bundleType, bundle] of bundleTypes) {
       const bundleItemsUnderUnderGasPrice = (
         Array.from(bundle.values()) as [BundleTypeToBundleItem[BundleType]]
@@ -131,29 +138,40 @@ export class TxBundlerPool implements TxPool<BundleItem> {
 
   private getTransferIdsFromBundleItem(bundleItem: BundleItem): string[] {
     const ids = new Set<string>();
-    let nfts: ChainNFTs[] = [];
+    let tokens: { from: string; to: string; nfts: ChainNFTs[] }[] = [];
     if ('constructed' in bundleItem) {
-      nfts = bundleItem.constructed.nfts; // match orders
+      tokens = [{ from: bundleItem.sell.signer, to: bundleItem.buy.signer, nfts: bundleItem.constructed.nfts }]; // match orders
+    } else if ('buy' in bundleItem) {
+      tokens = [{ from: bundleItem.sell.signer, to: bundleItem.buy.signer, nfts: bundleItem.buy.nfts }]; // match orders
     } else {
-      nfts = bundleItem.buy.nfts; // match order sone to one
-    }
-
-    for (const nft of nfts) {
-      const collection = nft.collection;
-      for (const token of nft.tokens) {
-        const amount = token.numTokens;
-        const tokenId = token.tokenId;
-        const from = bundleItem.sell.signer;
-        const to = bundleItem.buy.signer;
-        const transfer: NftTransfer = {
-          address: collection,
+      tokens = bundleItem.manyOrders.map((order) => {
+        const [from, to] = bundleItem.order.isSellOrder
+          ? [bundleItem.order.signer, order.signer]
+          : [order.signer, bundleItem.order.signer];
+        return {
           from,
           to,
-          amount,
-          tokenId
+          nfts: order.nfts
         };
-        const transferId = this.getTransferIdFromTransfer(transfer);
-        ids.add(transferId);
+      });
+    }
+
+    for (const { from, to, nfts } of tokens) {
+      for (const nft of nfts) {
+        const collection = nft.collection;
+        for (const token of nft.tokens) {
+          const amount = token.numTokens;
+          const tokenId = token.tokenId;
+          const transfer: NftTransfer = {
+            address: collection,
+            from,
+            to,
+            amount,
+            tokenId
+          };
+          const transferId = this.getTransferIdFromTransfer(transfer);
+          ids.add(transferId);
+        }
       }
     }
     return [...ids];
@@ -164,20 +182,30 @@ export class TxBundlerPool implements TxPool<BundleItem> {
    */
   private getOwnerTokenIdsFromBundleItem(bundleItem: BundleItem): string[] {
     const ids = new Set<string>();
-    let nfts: ChainNFTs[] = [];
+    let tokens: { owner: string; nfts: ChainNFTs[] }[] = [];
     if ('constructed' in bundleItem) {
-      nfts = bundleItem.constructed.nfts; // match orders
+      tokens = [{ owner: bundleItem.sell.signer, nfts: bundleItem.constructed.nfts }]; // match orders
+    } else if ('buy' in bundleItem) {
+      tokens = [{ owner: bundleItem.sell.signer, nfts: bundleItem.buy.nfts }]; // match orders
+    } else if (bundleItem.order.isSellOrder) {
+      tokens = [{ owner: bundleItem.order.signer, nfts: bundleItem.order.nfts }]; // match orders
     } else {
-      nfts = bundleItem.buy.nfts; // match order sone to one
+      tokens = bundleItem.manyOrders.map((order) => {
+        return {
+          owner: order.signer,
+          nfts: order.nfts
+        };
+      });
     }
 
-    for (const nft of nfts) {
-      const collection = nft.collection;
-      for (const token of nft.tokens) {
-        const tokenId = token.tokenId;
-        const owner = bundleItem.sell.signer;
-        const id = [collection, tokenId, owner].join(':');
-        ids.add(id);
+    for (const { owner, nfts } of tokens) {
+      for (const nft of nfts) {
+        const collection = nft.collection;
+        for (const token of nft.tokens) {
+          const tokenId = token.tokenId;
+          const id = [collection, tokenId, owner].join(':');
+          ids.add(id);
+        }
       }
     }
     return [...ids];

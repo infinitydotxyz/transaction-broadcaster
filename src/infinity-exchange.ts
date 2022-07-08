@@ -7,11 +7,9 @@ import {
   MakerOrder,
   OrderMatchStateError
 } from '@infinityxyz/lib/types/core';
-import { getExchangeAddress, getOBOrderPrice, getTxnCurrencyAddress } from '@infinityxyz/lib/utils/orders';
+import { getExchangeAddress, getTxnCurrencyAddress } from '@infinityxyz/lib/utils/orders';
 import { BigNumber, BigNumberish, Contract, ethers, providers } from 'ethers';
-import { erc20Abi } from './abi/erc20.abi';
-import { erc721Abi } from './abi/erc721.abi';
-import { infinityExchangeAbi } from './abi/infinity-exchange.abi';
+import { ERC20ABI, ERC721ABI, InfinityExchangeABI } from '@infinityxyz/lib/abi';
 import { MAX_GAS_LIMIT } from './utils/constants';
 import {
   BundleCallDataEncoder,
@@ -21,13 +19,18 @@ import {
   BundleOrdersEncoder,
   BundleType,
   BundleVerifier,
+  InvalidTransactionRequest,
   MatchOrdersArgs,
   MatchOrdersBundleItem,
+  MatchOrdersOneToManyArgs,
+  MatchOrdersOneToManyBundleItem,
   MatchOrdersOneToOneArgs,
   MatchOrdersOneToOneBundleItem
 } from './flashbots-broadcaster/bundle.types';
 import { getErrorMessage } from './utils/general';
-import { formatEther } from 'ethers/lib/utils';
+import { formatEther, parseEther } from 'ethers/lib/utils';
+import { InfinityOBComplicationABI } from '@infinityxyz/lib/abi/infinityOBComplication';
+import { getOneToManyOrderIntersection } from './utils/intersection';
 
 type InvalidBundleItem = {
   bundleItem: BundleItem | MatchOrdersBundleItem;
@@ -42,8 +45,8 @@ export class InfinityExchange {
 
   constructor(private providers: Record<ChainId, providers.StaticJsonRpcProvider>) {
     this.contracts = new Map();
-    for (const [chainId, provider] of Object.entries(providers) as [ChainId, providers.StaticJsonRpcProvider][]) {
-      const contract = new Contract(InfinityExchange.getExchangeAddress(chainId), infinityExchangeAbi, provider);
+    for (const [chainId, provider] of Object.entries(providers) as [ChainId, providers.JsonRpcProvider][]) {
+      const contract = new Contract(InfinityExchange.getExchangeAddress(chainId), InfinityExchangeABI, provider);
       this.contracts.set(chainId, contract);
     }
   }
@@ -66,6 +69,14 @@ export class InfinityExchange {
           this.matchOrdersOneToOneCallDataEncoder.bind(this),
           this.matchOrdersOneToOneVerifier.bind(this)
         );
+      case BundleType.MatchOrdersOneToMany:
+        return this.getEncoder<MatchOrdersOneToManyBundleItem, MatchOrdersOneToManyArgs>(
+          chainId,
+          signerAddress,
+          this.matchOrdersOneToManyItemsToArgsTransformer.bind(this),
+          this.matchOrdersOneToManyCallDataEncoder.bind(this),
+          this.matchOrdersOneToManyVerifier.bind(this)
+        );
       default:
         throw new Error(`Bundle type ${bundleType} not yet supported`);
     }
@@ -84,7 +95,7 @@ export class InfinityExchange {
     const buildBundles = async (
       bundleItems: T[],
       numBundles: number
-    ): Promise<{ txRequests: TransactionRequest[]; invalidBundleItems: T[] }> => {
+    ): Promise<{ txRequests: TransactionRequest[]; invalidBundleItems: InvalidTransactionRequest<T>[] }> => {
       const bundleArgs = bundleItemsToArgs(bundleItems, numBundles);
       const transactionRequests: TransactionRequest[] = (
         await Promise.all(
@@ -129,9 +140,9 @@ export class InfinityExchange {
     const encoder: BundleOrdersEncoder<T> = async (
       bundleItems: T[],
       minBundleSize: number
-    ): Promise<{ txRequests: TransactionRequest[]; invalidBundleItems: T[] }> => {
+    ): Promise<{ txRequests: TransactionRequest[]; invalidBundleItems: InvalidTransactionRequest<T>[] }> => {
       let validBundleItems: BundleItemWithCurrentPrice[] = [];
-      let invalidBundleItems: InvalidBundleItem[] = [];
+      let invalidBundleItems: InvalidTransactionRequest<T>[] = [];
 
       console.log(
         `Received: ${bundleItems.length} valid bundle items and ${invalidBundleItems.length} invalid bundle items`
@@ -140,15 +151,15 @@ export class InfinityExchange {
       // TODO it would be more scalable to call an external service to check bundle item validity
       const { validBundleItems: validBundleItemsAfterVerification, invalidBundleItems: invalidBundleItemsFromVerify } =
         await verifyBundleItems(bundleItems, chainId);
-      const invalidBundleItemsFromVerifyWithError = invalidBundleItemsFromVerify.map((invalidItem) => {
-        return {
-          bundleItem: invalidItem,
-          orderError: {
+      const invalidBundleItemsFromVerifyWithError: InvalidTransactionRequest<T>[] = invalidBundleItemsFromVerify.map(
+        (invalidItem) => {
+          return {
+            item: invalidItem,
             code: FirestoreOrderMatchErrorCode.OrderInvalid,
             error: 'Order match not valid for one or more orders'
-          }
-        };
-      });
+          };
+        }
+      );
       validBundleItems = validBundleItemsAfterVerification;
       invalidBundleItems = [...invalidBundleItems, ...invalidBundleItemsFromVerifyWithError];
 
@@ -161,7 +172,10 @@ export class InfinityExchange {
         invalidBundleItems: invalidBundleItemsAfterNftApproval
       } = await this.checkNftSellerApprovalAndBalance(validBundleItems, chainId);
       validBundleItems = validBundleItemsAfterNftApproval;
-      invalidBundleItems = [...invalidBundleItems, ...invalidBundleItemsAfterNftApproval];
+      invalidBundleItems = [
+        ...invalidBundleItems,
+        ...(invalidBundleItemsAfterNftApproval as InvalidTransactionRequest<T>[])
+      ];
 
       console.log(
         `Have ${validBundleItems.length} valid bundle items and ${invalidBundleItems.length} invalid bundle items after checking nft approval and balance`
@@ -172,14 +186,17 @@ export class InfinityExchange {
         invalidBundleItems: invalidBundleItemsFromCurrencyCheck
       } = await this.checkNftBuyerApprovalAndBalance(validBundleItems, chainId);
       validBundleItems = validBundleItemsAfterCurrencyCheck as unknown as BundleItemWithCurrentPrice[];
-      invalidBundleItems = [...invalidBundleItems, ...invalidBundleItemsFromCurrencyCheck];
+      invalidBundleItems = [
+        ...invalidBundleItems,
+        ...(invalidBundleItemsFromCurrencyCheck as InvalidTransactionRequest<T>[])
+      ];
 
       console.log(
         `Have ${validBundleItems.length} valid bundle items and ${invalidBundleItems.length} invalid bundle items after checking currency approval and balance`
       );
 
       if (validBundleItems.length < minBundleSize) {
-        return { txRequests: [] as TransactionRequest[], invalidBundleItems: invalidBundleItemsFromVerify };
+        return { txRequests: [] as TransactionRequest[], invalidBundleItems: invalidBundleItems };
       }
 
       const { txRequests, invalidBundleItems: invalidBundleItemsFromBuild } = await buildBundles(
@@ -187,7 +204,9 @@ export class InfinityExchange {
         1
       );
 
-      return { txRequests, invalidBundleItems: [...invalidBundleItemsFromVerify, ...invalidBundleItemsFromBuild] };
+      invalidBundleItems = [...invalidBundleItems, ...invalidBundleItemsFromBuild];
+
+      return { txRequests, invalidBundleItems };
     };
 
     return encoder;
@@ -196,50 +215,74 @@ export class InfinityExchange {
   private async checkNftBuyerApprovalAndBalance(
     bundleItems: BundleItemWithCurrentPrice[],
     chainId: ChainId
-  ): Promise<{ validBundleItems: BundleItemWithCurrentPrice[]; invalidBundleItems: InvalidBundleItem[] }> {
+  ): Promise<{
+    validBundleItems: BundleItemWithCurrentPrice[];
+    invalidBundleItems: InvalidTransactionRequest<BundleItem>[];
+  }> {
     const provider = this.getProvider(chainId);
     const operator = this.getContract(chainId).address;
+    console.log(`Operator: ${operator}`);
     type BundleItemIsValid = { bundleItem: BundleItemWithCurrentPrice; isValid: true };
     type BundleItemIsInvalid = InvalidBundleItem & { isValid: false };
 
     const results: (BundleItemIsValid | BundleItemIsInvalid)[] = await Promise.all(
       bundleItems.map(async (bundleItem) => {
         try {
-          const buyer = bundleItem.buy.signer;
-          const currency = bundleItem.buy.execParams[1];
           const weth = getTxnCurrencyAddress(chainId);
-          const currencies = [...new Set([currency, weth])];
+          let buyOrders: ChainOBOrder[] = [];
+          if ('buy' in bundleItem) {
+            buyOrders = [bundleItem.buy];
+          } else if (!bundleItem.order.isSellOrder) {
+            buyOrders = [bundleItem.order];
+          } else {
+            buyOrders = bundleItem.manyOrders;
+          }
 
-          for (const currency of currencies) {
-            const contract = new ethers.Contract(currency, erc20Abi, provider);
-            const allowance: BigNumberish = await contract.allowance(buyer, operator);
-            let expectedCost = bundleItem.currentPrice.mul(11).div(10); // 10% buffer
-            if (currency === weth) {
-              // TODO estimate gas price and add it here
-              expectedCost = expectedCost.add(0);
-            }
+          const buysByAddress = buyOrders.reduce(
+            (acc: { [buyerAddress: string]: { [currency: string]: BigNumber } }, order) => {
+              const { signer, execParams } = order;
+              const currency = execParams[1];
+              const cost = bundleItem.currentPrice.div(buyOrders.length);
+              const buyer = acc[signer] ?? { [currency]: BigNumber.from(0) };
+              if (currency !== weth) {
+                buyer[weth] = buyer[weth] ?? BigNumber.from(0);
+              }
+              const gasPrice = BigNumber.from(0); // TODO estimate gas price and add it here
+              buyer[currency] = buyer[currency].add(cost.mul(105).div(100)); // 5% buffer
+              buyer[weth] = buyer[weth].add(gasPrice);
+              acc[signer] = buyer;
+              return acc;
+            },
+            {}
+          );
 
-            if (BigNumber.from(allowance).lt(expectedCost)) {
-              return {
-                bundleItem,
-                isValid: false,
-                orderError: {
-                  code: FirestoreOrderMatchErrorCode.InsufficientCurrencyAllowance,
-                  error: `Buyer: ${buyer} has an insufficient currency allowance for currency ${currency}. Allowance: ${allowance.toString()}. Expected: ${expectedCost.toString()}`
-                }
-              };
-            }
+          for (const [buyer, currencies] of Object.entries(buysByAddress)) {
+            for (const [currency, expectedCost] of Object.entries(currencies)) {
+              const contract = new ethers.Contract(currency, ERC20ABI, provider);
+              const allowance: BigNumberish = await contract.allowance(buyer, operator);
 
-            const balance: BigNumberish = await contract.balanceOf(buyer);
-            if (BigNumber.from(balance).lt(expectedCost)) {
-              return {
-                bundleItem,
-                isValid: false,
-                orderError: {
-                  code: FirestoreOrderMatchErrorCode.InsufficientCurrencyBalance,
-                  error: `Buyer: ${buyer} has an insufficient currency balance for currency ${currency}. Balance: ${balance.toString()}. Expected: ${expectedCost.toString()}`
-                }
-              };
+              if (BigNumber.from(allowance).lt(expectedCost)) {
+                return {
+                  bundleItem,
+                  isValid: false,
+                  orderError: {
+                    code: FirestoreOrderMatchErrorCode.InsufficientCurrencyAllowance,
+                    error: `Buyer: ${buyer} has an insufficient currency allowance for currency ${currency}. Allowance: ${allowance.toString()}. Expected: ${expectedCost.toString()}`
+                  }
+                };
+              }
+
+              const balance: BigNumberish = await contract.balanceOf(buyer);
+              if (BigNumber.from(balance).lt(expectedCost)) {
+                return {
+                  bundleItem,
+                  isValid: false,
+                  orderError: {
+                    code: FirestoreOrderMatchErrorCode.InsufficientCurrencyBalance,
+                    error: `Buyer: ${buyer} has an insufficient currency balance for currency ${currency}. Balance: ${balance.toString()}. Expected: ${expectedCost.toString()}`
+                  }
+                };
+              }
             }
           }
           return { bundleItem, isValid: true };
@@ -259,16 +302,23 @@ export class InfinityExchange {
     );
 
     return results.reduce(
-      (acc: { validBundleItems: BundleItemWithCurrentPrice[]; invalidBundleItems: InvalidBundleItem[] }, result) => {
+      (
+        acc: {
+          validBundleItems: BundleItemWithCurrentPrice[];
+          invalidBundleItems: InvalidTransactionRequest<BundleItem>[];
+        },
+        result
+      ) => {
         if (result.isValid) {
           return {
             ...acc,
             validBundleItems: [...acc.validBundleItems, result.bundleItem]
           };
         }
-        const invalidBundleItem = {
-          bundleItem: result.bundleItem,
-          orderError: result.orderError
+        const invalidBundleItem: InvalidTransactionRequest<BundleItem> = {
+          item: result.bundleItem,
+          error: result.orderError.error,
+          code: result.orderError.code
         };
         return {
           ...acc,
@@ -282,7 +332,10 @@ export class InfinityExchange {
   private async checkNftSellerApprovalAndBalance(
     bundleItems: BundleItemWithCurrentPrice[],
     chainId: ChainId
-  ): Promise<{ validBundleItems: BundleItemWithCurrentPrice[]; invalidBundleItems: InvalidBundleItem[] }> {
+  ): Promise<{
+    validBundleItems: BundleItemWithCurrentPrice[];
+    invalidBundleItems: InvalidTransactionRequest<BundleItem>[];
+  }> {
     const provider = this.getProvider(chainId);
     const operator = this.getContract(chainId).address;
     type BundleItemIsValid = { bundleItem: BundleItemWithCurrentPrice; isValid: true };
@@ -290,34 +343,48 @@ export class InfinityExchange {
     const results: (BundleItemIsValid | BundleItemIsInvalid)[] = await Promise.all(
       bundleItems.map(async (bundleItem) => {
         try {
-          const owner = bundleItem.sell;
-          const signerAddress = owner.signer;
-          const nfts =
-            bundleItem.bundleType === BundleType.MatchOrders ? bundleItem.constructed.nfts : bundleItem.sell.nfts;
-          for (const { collection, tokens } of nfts) {
-            const erc721Contract = new ethers.Contract(collection, erc721Abi, provider);
-            const isApproved = await erc721Contract.isApprovedForAll(signerAddress, operator);
-            if (!isApproved) {
-              return {
-                bundleItem,
-                isValid: false,
-                orderError: {
-                  error: `Operator ${operator} is not approved on contract ${collection}`,
-                  code: FirestoreOrderMatchErrorCode.NotApprovedToTransferToken
-                }
-              };
-            }
-            for (const { tokenId, numTokens } of tokens) {
-              const ownerOfToken = await erc721Contract.ownerOf(tokenId);
-              if (signerAddress !== ownerOfToken.toLowerCase()) {
+          let ownerNfts: { nfts: ChainNFTs[]; signerAddress: string }[] = [];
+          if ('sell' in bundleItem) {
+            const owner = bundleItem.sell;
+            const signerAddress = owner.signer;
+            const nfts =
+              bundleItem.bundleType === BundleType.MatchOrders ? bundleItem.constructed.nfts : bundleItem.sell.nfts;
+            ownerNfts = [{ nfts, signerAddress }];
+          } else if (bundleItem.order.isSellOrder) {
+            const signerAddress = bundleItem.order.signer;
+            const nfts = bundleItem.order.nfts;
+            ownerNfts = [{ nfts, signerAddress }];
+          } else {
+            ownerNfts = bundleItem.manyOrders.map((item) => {
+              return { nfts: item.nfts, signerAddress: item.signer };
+            });
+          }
+          for (const { nfts, signerAddress } of ownerNfts) {
+            for (const { collection, tokens } of nfts) {
+              const erc721Contract = new ethers.Contract(collection, ERC721ABI, provider);
+              const isApproved = await erc721Contract.isApprovedForAll(signerAddress, operator);
+              if (!isApproved) {
                 return {
                   bundleItem,
                   isValid: false,
                   orderError: {
-                    error: `Signer ${signerAddress} does not own at least ${numTokens} tokens of token ${tokenId} from collection ${collection}`,
-                    code: FirestoreOrderMatchErrorCode.InsufficientTokenBalance
+                    error: `Operator ${operator} is not approved on contract ${collection}`,
+                    code: FirestoreOrderMatchErrorCode.NotApprovedToTransferToken
                   }
                 };
+              }
+              for (const { tokenId, numTokens } of tokens) {
+                const ownerOfToken = await erc721Contract.ownerOf(tokenId);
+                if (signerAddress !== ownerOfToken.toLowerCase()) {
+                  return {
+                    bundleItem,
+                    isValid: false,
+                    orderError: {
+                      error: `Signer ${signerAddress} does not own at least ${numTokens} tokens of token ${tokenId} from collection ${collection}`,
+                      code: FirestoreOrderMatchErrorCode.InsufficientTokenBalance
+                    }
+                  };
+                }
               }
             }
           }
@@ -338,7 +405,13 @@ export class InfinityExchange {
     );
 
     return results.reduce(
-      (acc: { validBundleItems: BundleItemWithCurrentPrice[]; invalidBundleItems: InvalidBundleItem[] }, result) => {
+      (
+        acc: {
+          validBundleItems: BundleItemWithCurrentPrice[];
+          invalidBundleItems: InvalidTransactionRequest<BundleItem>[];
+        },
+        result
+      ) => {
         if (result.isValid) {
           return {
             ...acc,
@@ -346,8 +419,9 @@ export class InfinityExchange {
           };
         }
         const invalidBundleItem = {
-          bundleItem: result.bundleItem,
-          orderError: result.orderError
+          item: result.bundleItem,
+          code: result.orderError.code,
+          error: result.orderError.error
         };
         return {
           ...acc,
@@ -380,6 +454,16 @@ export class InfinityExchange {
     return data;
   };
 
+  private matchOrdersOneToManyCallDataEncoder: BundleCallDataEncoder<MatchOrdersOneToManyArgs> = (
+    args: MatchOrdersOneToManyArgs,
+    chainId: ChainId
+  ) => {
+    const contract = this.getContract(chainId);
+    const fn = contract.interface.getFunction('matchOneToManyOrders');
+    const data = contract.interface.encodeFunctionData(fn, args);
+    return data;
+  };
+
   private matchOrdersOneToOneItemsToArgsTransformer: BundleItemsToArgsTransformer<
     MatchOrdersOneToOneBundleItem,
     MatchOrdersOneToOneArgs
@@ -400,6 +484,19 @@ export class InfinityExchange {
       return args;
     });
     return bundlesArgs;
+  };
+
+  private matchOrdersOneToManyItemsToArgsTransformer: BundleItemsToArgsTransformer<
+    MatchOrdersOneToManyBundleItem,
+    MatchOrdersOneToManyArgs
+  > = (bundleItems: MatchOrdersOneToManyBundleItem[]) => {
+    /**
+     * match orders one to many only supports on order at a time
+     */
+    return bundleItems.map((bundleItem) => {
+      const args: MatchOrdersOneToManyArgs = [bundleItem.order, bundleItem.manyOrders];
+      return args;
+    });
   };
 
   private matchOrdersItemsToArgsTransformer: BundleItemsToArgsTransformer<MatchOrdersBundleItem, MatchOrdersArgs> = (
@@ -425,29 +522,137 @@ export class InfinityExchange {
     return bundlesArgs;
   };
 
+  private matchOrdersOneToManyVerifier: BundleVerifier<MatchOrdersOneToManyBundleItem> = async (
+    bundleItems: MatchOrdersOneToManyBundleItem[],
+    chainId: ChainId
+  ) => {
+    try {
+      const results = await Promise.all(
+        bundleItems.map(async (bundleItem) => {
+          try {
+            const complication = new ethers.Contract(
+              bundleItem.order.execParams[0],
+              InfinityOBComplicationABI,
+              this.getProvider(chainId)
+            );
+            const [isValid] = await complication.canExecMatchOneToMany(bundleItem.order, bundleItem.manyOrders);
+            const getOrderPrices = (order: MakerOrder) => {
+              return {
+                startPriceEth: parseFloat(formatEther(BigNumber.from(order.constraints[1]).toString())),
+                endPriceEth: parseFloat(formatEther(BigNumber.from(order.constraints[2]).toString())),
+                startTimeMs: parseInt(BigNumber.from(order.constraints[3]).toString(), 10) * 1000,
+                endTimeMs: parseInt(BigNumber.from(order.constraints[4]).toString(), 10) * 1000,
+                isSellOrder: order.isSellOrder
+              };
+            };
+            const intersection = getOneToManyOrderIntersection(
+              getOrderPrices(bundleItem.order),
+              bundleItem.manyOrders.map(getOrderPrices)
+            );
+            const execPrice = intersection?.getPriceAtTime(Date.now());
+            if (execPrice == null) {
+              return {
+                bundleItem,
+                isValid: false,
+                execPrice: '0'
+              };
+            }
+
+            return {
+              bundleItem,
+              isValid,
+              execPrice: execPrice.toString()
+            };
+          } catch (err) {
+            console.error(`Failed to validate bundle item`);
+            console.error(err);
+            return {
+              bundleItem,
+              isValid: false,
+              execPrice: '0'
+            };
+          }
+        })
+      );
+
+      return results.reduce(
+        (
+          acc: {
+            validBundleItems: BundleItemWithCurrentPrice[];
+            invalidBundleItems: MatchOrdersOneToManyBundleItem[];
+          },
+          { bundleItem, isValid, execPrice }
+        ) => {
+          const bundleItemWithCurrentPrice: BundleItemWithCurrentPrice = {
+            ...bundleItem,
+            currentPrice: parseEther(execPrice)
+          };
+          return {
+            validBundleItems: isValid ? [...acc.validBundleItems, bundleItemWithCurrentPrice] : acc.validBundleItems,
+            invalidBundleItems: !isValid ? [...acc.invalidBundleItems, bundleItem] : acc.invalidBundleItems
+          };
+        },
+        { validBundleItems: [], invalidBundleItems: [] }
+      );
+    } catch (err) {
+      console.log(`failed to verify match one to many orders`);
+      console.error(err);
+      throw err;
+    }
+  };
+
   private matchOrdersOneToOneVerifier: BundleVerifier<MatchOrdersOneToOneBundleItem> = async (
     bundleItems: MatchOrdersOneToOneBundleItem[],
     chainId: ChainId
   ) => {
     try {
-      const result = await new Promise<{
-        validBundleItems: BundleItemWithCurrentPrice[];
-        invalidBundleItems: MatchOrdersOneToOneBundleItem[];
-      }>((res) => {
-        const bundleItemsWithCurrentPrice = bundleItems.map((bundleItem) => {
-          return {
+      const results = await Promise.all(
+        bundleItems.map(async (bundleItem) => {
+          const complication = new ethers.Contract(
+            bundleItem.sell.execParams[0],
+            InfinityOBComplicationABI,
+            this.getProvider(chainId)
+          );
+          try {
+            const [isValid, , , execPrice] = await complication.canExecMatchOneToOne(bundleItem.sell, bundleItem.buy);
+            return {
+              bundleItem,
+              isValid,
+              execPrice
+            };
+          } catch (err) {
+            console.error(`Failed to validate bundle item`);
+            console.error(err);
+            return {
+              bundleItem,
+              isValid: false,
+              execPrice: '0'
+            };
+          }
+        })
+      );
+
+      return results.reduce(
+        (
+          acc: {
+            validBundleItems: BundleItemWithCurrentPrice[];
+            invalidBundleItems: MatchOrdersOneToOneBundleItem[];
+          },
+          { bundleItem, isValid, execPrice }
+        ) => {
+          const bundleItemWithCurrentPrice: BundleItemWithCurrentPrice = {
             ...bundleItem,
-            currentPrice: BigNumber.from(bundleItem.sell.constraints[1])
+            currentPrice: execPrice
           };
-        }); // TODO add validation once new contracts deployed
-        res({
-          validBundleItems: bundleItemsWithCurrentPrice,
-          invalidBundleItems: []
-        });
-      });
-      return result;
+          return {
+            validBundleItems: isValid ? [...acc.validBundleItems, bundleItemWithCurrentPrice] : acc.validBundleItems,
+            invalidBundleItems: !isValid ? [...acc.invalidBundleItems, bundleItem] : acc.invalidBundleItems
+          };
+        },
+        { validBundleItems: [], invalidBundleItems: [] }
+      );
     } catch (err) {
-      console.log(`failed to verify match orders`);
+      console.log(`failed to verify match one to one orders`);
       console.error(err);
       throw err;
     }
@@ -458,43 +663,37 @@ export class InfinityExchange {
     chainId: ChainId
   ) => {
     try {
-      const contract = this.getContract(chainId);
-      const results = await Promise.allSettled(
-        bundleItems.map(async (item) => {
-          return contract.verifyMatchOrders(
-            item.sellOrderHash,
-            item.buyOrderHash,
-            item.sell,
-            item.buy
-          ) as Promise<boolean>;
+      const results = await Promise.all(
+        bundleItems.map(async (bundleItem) => {
+          const complication = new ethers.Contract(
+            bundleItem.sell.execParams[0],
+            InfinityOBComplicationABI,
+            this.getProvider(chainId)
+          );
+          try {
+            const [isValid, , , execPrice] = await complication.canExecMatchOrder(
+              bundleItem.sell,
+              bundleItem.buy,
+              bundleItem.constructed.nfts
+            );
+            return { bundleItem, isValid, execPrice };
+          } catch (err) {
+            console.error(err);
+            return { bundleItem, isValid: false, execPrice: '0' };
+          }
         })
       );
-      return bundleItems.reduce(
+      return results.reduce(
         (
           acc: {
             validBundleItems: BundleItemWithCurrentPrice[];
             invalidBundleItems: MatchOrdersBundleItem[];
           },
-          bundleItem,
-          index
+          { bundleItem, isValid, execPrice }
         ) => {
-          const result = results[index];
-          const isValid = result.status === 'fulfilled' && result.value;
-          const getCurrentPrice = (order: ChainOBOrder) => {
-            const startPriceEth = parseFloat(formatEther(order.constraints[1]).toString());
-            const endPriceEth = parseFloat(formatEther(order.constraints[2]).toString());
-            const startTimeMs = BigNumber.from(order.constraints[3]).toNumber() * 1000;
-            const endTimeMs = BigNumber.from(order.constraints[4]).toNumber() * 1000;
-            const props = { startPriceEth, startTimeMs, endPriceEth, endTimeMs };
-            const currentPrice = getOBOrderPrice(props, Date.now());
-            return currentPrice;
-          };
-          const sellPrice = getCurrentPrice(bundleItem.sell);
-          const buyPrice = getCurrentPrice(bundleItem.buy);
-          const currentPrice = sellPrice.gte(buyPrice) ? buyPrice : sellPrice;
           const bundleItemWithCurrentPrice: BundleItemWithCurrentPrice = {
             ...bundleItem,
-            currentPrice
+            currentPrice: execPrice
           };
           return {
             validBundleItems: isValid ? [...acc.validBundleItems, bundleItemWithCurrentPrice] : acc.validBundleItems,

@@ -2,6 +2,7 @@ import { FlashbotsBundleResolution } from '@flashbots/ethers-provider-bundle';
 import { MatchOrderFulfilledEvent } from '@infinityxyz/lib/types/core';
 import { BigNumber, BigNumberish, providers } from 'ethers/lib/ethers';
 import { Erc20Transfer, NftTransfer } from '../utils/log.types';
+import { BundleItem, InvalidTransactionRequest } from './bundle.types';
 import { FlashbotsBroadcasterSettings } from './flashbots-broadcaster-options.types';
 
 export enum FlashbotsBroadcasterEvent {
@@ -17,6 +18,8 @@ export enum FlashbotsBroadcasterEvent {
   Simulated = 'simulated',
   SubmittingBundle = 'submitting-bundle',
   BundleResult = 'bundle-result',
+
+  InvalidBundleItems = 'invalid-bundle-items',
 
   RelayError = 'relay-error'
 }
@@ -100,6 +103,10 @@ export interface RelayErrorEvent {
   message: string;
 }
 
+export interface InvalidBundleItemsEvent {
+  invalidBundleItems: InvalidTransactionRequest<BundleItem>[];
+}
+
 export interface BlockEvent {
   blockNumber: number;
   gasPrice: BigNumberish;
@@ -114,6 +121,7 @@ export type GetEventType = {
   [FlashbotsBroadcasterEvent.SubmittingBundle]: SubmittingBundleEvent;
   [FlashbotsBroadcasterEvent.BundleResult]: BundleSubmissionResultEvent;
   [FlashbotsBroadcasterEvent.RelayError]: RelayErrorEvent;
+  [FlashbotsBroadcasterEvent.InvalidBundleItems]: InvalidBundleItemsEvent;
 };
 
 export type FlashbotsBroadcasterEventTypes =
@@ -124,4 +132,5 @@ export type FlashbotsBroadcasterEventTypes =
   | SubmittingBundleEvent
   | BundleSubmissionResultEvent
   | RelayErrorEvent
-  | BlockEvent;
+  | BlockEvent
+  | InvalidBundleItemsEvent;
