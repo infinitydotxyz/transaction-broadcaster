@@ -48,6 +48,7 @@ export enum RevertReason {
 }
 
 export interface SimulatedEvent {
+  blockNumber: number;
   successfulTransactions: providers.TransactionRequest[];
   revertedTransactions: { tx: providers.TransactionRequest; reason: RevertReason | string }[];
   gasPrice: BigNumber;
@@ -99,11 +100,13 @@ export interface FailedBundleSubmission {
 export type BundleSubmissionResultEvent = SuccessfulBundleSubmission | FailedBundleSubmission;
 
 export interface RelayErrorEvent {
+  blockNumber: number;
   code: RelayErrorCode | number;
   message: string;
 }
 
 export interface InvalidBundleItemsEvent {
+  blockNumber: number;
   invalidBundleItems: InvalidTransactionRequest<BundleItem>[];
 }
 
