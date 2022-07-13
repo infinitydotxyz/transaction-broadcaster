@@ -145,8 +145,8 @@ export class InfinityExchange {
       let invalidBundleItems: InvalidTransactionRequest<T>[] = [];
 
       if (bundleItems.length < minBundleSize) {
-        // don't attempt to validate matches until we have at least the min num bundle items 
-        return { txRequests: [] as TransactionRequest[], invalidBundleItems: invalidBundleItems }; 
+        // don't attempt to validate matches until we have at least the min num bundle items
+        return { txRequests: [] as TransactionRequest[], invalidBundleItems: invalidBundleItems };
       }
 
       // TODO it would be more scalable to call an external service to check bundle item validity

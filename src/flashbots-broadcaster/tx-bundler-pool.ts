@@ -22,7 +22,7 @@ export interface TxBundlerPoolOptions {
 export class TxBundlerPool implements TxPool<BundleItem> {
   public get sizes() {
     const res: Record<BundleType, number> = {} as Record<BundleType, number>;
-    for(const pool of this.bundlePool) {  
+    for (const pool of this.bundlePool) {
       res[pool[0]] = pool[1].size;
     }
     return res;
