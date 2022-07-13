@@ -110,6 +110,7 @@ export interface InvalidBundleItemsEvent {
 export interface BlockEvent {
   blockNumber: number;
   gasPrice: BigNumberish;
+  txPoolSizes: Record<string, number>;
 }
 
 export type GetEventType = {

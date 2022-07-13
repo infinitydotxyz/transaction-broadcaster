@@ -57,10 +57,26 @@ function registerBroadcasterListeners(
   broadcaster: FlashbotsBroadcaster<BundleItem>,
   firestoreProvider: FirestoreOrderTransactionProvider
 ) {
-  broadcaster.on(FlashbotsBroadcasterEvent.Started, console.log);
-  broadcaster.on(FlashbotsBroadcasterEvent.Stopping, console.log);
-  broadcaster.on(FlashbotsBroadcasterEvent.Stopped, console.log);
-  broadcaster.on(FlashbotsBroadcasterEvent.Block, console.log);
+  const log = (state: FlashbotsBroadcasterEvent, message: string) => {
+    const msg = `[${broadcaster.network.name}] [${state}] ${message}`;
+    console.log(msg);
+  };
+
+  broadcaster.on(FlashbotsBroadcasterEvent.Started, (event) => {
+    const message = `Signer: ${event.signerAddress} Allow Reverts: ${event.settings.allowReverts ? '✅' : '❌'} Blocks in the future: ${event.settings.blocksInFuture} Filter reverts: ${event.settings.filterSimulationReverts ? '✅' : '❌'}`;
+    log(FlashbotsBroadcasterEvent.Started, message);
+  });
+  broadcaster.on(FlashbotsBroadcasterEvent.Stopping, () => {
+    log(FlashbotsBroadcasterEvent.Stopping, '');
+  });
+  broadcaster.on(FlashbotsBroadcasterEvent.Stopped, () => {
+    log(FlashbotsBroadcasterEvent.Stopped, '');
+  });
+  broadcaster.on(FlashbotsBroadcasterEvent.Block, (event) => {
+    const pools = Object.entries(event.txPoolSizes).map(([name, size]) => `${name}: ${size}`).join(', ');
+    const message = `#${event.blockNumber} Gas Price: ${event.gasPrice} ${pools}`;
+    log(FlashbotsBroadcasterEvent.Block, message);
+  });
   broadcaster.on(FlashbotsBroadcasterEvent.InvalidBundleItems, async (event) => {
     try {
       const updates = event.invalidBundleItems.map(({ item, error, code }) => {
@@ -72,7 +88,7 @@ function registerBroadcasterListeners(
         const id = item.id;
         return { id, state };
       });
-      console.log(`Found: ${updates.length} invalid bundle items`);
+      log(FlashbotsBroadcasterEvent.InvalidBundleItems, `Found: ${updates.length} invalid bundle items`);
       console.table(updates.map((item) => ({ id: item.id, error: item.state.error })));
       await firestoreProvider.updateInvalidOrderMatches(updates);
     } catch (err) {
@@ -80,40 +96,36 @@ function registerBroadcasterListeners(
     }
   });
   broadcaster.on(FlashbotsBroadcasterEvent.SubmittingBundle, (event) => {
-    console.log(`Submitting bundle of ${event.transactions.length} transactions for block ${event.blockNumber}`);
+    const message = `Submitting bundle to block ${event.blockNumber} with ${event.transactions.length} transactions`;
+    log(FlashbotsBroadcasterEvent.SubmittingBundle, message);
   });
   broadcaster.on(FlashbotsBroadcasterEvent.RelayError, (event) => {
     if (WEBHOOK_URL) {
       const embed = relayErrorToEmbed(event, broadcaster.chainId);
       sendWebhook(WEBHOOK_URL, embed).catch(console.error);
     }
+    log(FlashbotsBroadcasterEvent.RelayError, event.message);
     console.error(`Relay Error: ${JSON.stringify(event, null, 2)}`);
   });
 
   broadcaster.on(FlashbotsBroadcasterEvent.Simulated, (event) => {
-    try {
-      console.log(`Simulated transactions for chain ${broadcaster.chainId} 
-      Successful: ${event.successfulTransactions.length}. Reverted: ${event.revertedTransactions.length}.
-      Gas Price: ${event.gasPrice.toString()} Total Gas Used: ${event.totalGasUsed}`);
-    } catch (err) {
-      console.error(err);
-    }
+    log(
+      FlashbotsBroadcasterEvent.Simulated,
+      `Successful: ${event.successfulTransactions.length} Failed: ${
+        event.revertedTransactions.length
+      } Gas Price: ${event.gasPrice.toString()} Total gas used: ${event.totalGasUsed}`
+    );
   });
 
   broadcaster.on(FlashbotsBroadcasterEvent.BundleResult, async (event) => {
     if ('reason' in event) {
+      log(FlashbotsBroadcasterEvent.BundleResult, `Failed: ${event.reason}`);
       console.error(event.reason);
     } else {
       try {
         const bundleItems = event.nftTransfers
           .map((transfer) => broadcaster.getBundleItemFromTransfer(transfer))
           .filter((bundleItem) => !!bundleItem) as BundleItem[];
-
-        // bundle items should only be skipped if the orders are no longer valid
-        // we should make the validate function on the contract an `external view` function
-        // so we can check if each item is valid before submitting all of them together
-        // we also need to make sure that orders within the bundle aren't conflicting
-        // we should not attempt to transfer the same tokens from one owner more than once
 
         const matchOrdersFulfilledByBuyOrderHash = event.matchOrdersFulfilled.reduce(
           (acc: { [buyOrderHash: string]: MatchOrderFulfilledEvent[] }, order) => {
@@ -157,7 +169,7 @@ function registerBroadcasterListeners(
           updates.map((item) => ({ id: item.id, state: item.orderMatchState }))
         );
       } catch (err) {
-        console.log(err);
+        console.error(err);
       }
     }
   });

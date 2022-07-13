@@ -144,9 +144,10 @@ export class InfinityExchange {
       let validBundleItems: BundleItemWithCurrentPrice[] = [];
       let invalidBundleItems: InvalidTransactionRequest<T>[] = [];
 
-      console.log(
-        `Received: ${bundleItems.length} valid bundle items and ${invalidBundleItems.length} invalid bundle items`
-      );
+      if (bundleItems.length < minBundleSize) {
+        // don't attempt to validate matches until we have at least the min num bundle items 
+        return { txRequests: [] as TransactionRequest[], invalidBundleItems: invalidBundleItems }; 
+      }
 
       // TODO it would be more scalable to call an external service to check bundle item validity
       const { validBundleItems: validBundleItemsAfterVerification, invalidBundleItems: invalidBundleItemsFromVerify } =
@@ -163,10 +164,6 @@ export class InfinityExchange {
       validBundleItems = validBundleItemsAfterVerification;
       invalidBundleItems = [...invalidBundleItems, ...invalidBundleItemsFromVerifyWithError];
 
-      console.log(
-        `Have ${validBundleItems.length} valid bundle items and ${invalidBundleItems.length} invalid bundle items after verifying orders`
-      );
-
       const {
         validBundleItems: validBundleItemsAfterNftApproval,
         invalidBundleItems: invalidBundleItemsAfterNftApproval
@@ -177,10 +174,6 @@ export class InfinityExchange {
         ...(invalidBundleItemsAfterNftApproval as InvalidTransactionRequest<T>[])
       ];
 
-      console.log(
-        `Have ${validBundleItems.length} valid bundle items and ${invalidBundleItems.length} invalid bundle items after checking nft approval and balance`
-      );
-
       const {
         validBundleItems: validBundleItemsAfterCurrencyCheck,
         invalidBundleItems: invalidBundleItemsFromCurrencyCheck
@@ -190,10 +183,6 @@ export class InfinityExchange {
         ...invalidBundleItems,
         ...(invalidBundleItemsFromCurrencyCheck as InvalidTransactionRequest<T>[])
       ];
-
-      console.log(
-        `Have ${validBundleItems.length} valid bundle items and ${invalidBundleItems.length} invalid bundle items after checking currency approval and balance`
-      );
 
       if (validBundleItems.length < minBundleSize) {
         return { txRequests: [] as TransactionRequest[], invalidBundleItems: invalidBundleItems };
@@ -221,7 +210,6 @@ export class InfinityExchange {
   }> {
     const provider = this.getProvider(chainId);
     const operator = this.getContract(chainId).address;
-    console.log(`Operator: ${operator}`);
     type BundleItemIsValid = { bundleItem: BundleItemWithCurrentPrice; isValid: true };
     type BundleItemIsInvalid = InvalidBundleItem & { isValid: false };
 

@@ -33,7 +33,7 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
   private provider: providers.StaticJsonRpcProvider;
   private flashbotsProvider: FlashbotsBundleProvider;
   private txPool: TxPool<T>;
-  private readonly network: providers.Network;
+  public readonly network: providers.Network;
   private readonly settings: FlashbotsBroadcasterSettings;
   private shutdown?: () => Promise<void>;
   private emitter: EventEmitter;
@@ -147,7 +147,8 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
       const timestamp = block.timestamp;
       const blockEvent: BlockEvent = {
         blockNumber,
-        gasPrice: baseFee.toString()
+        gasPrice: baseFee.toString(),
+        txPoolSizes:this.txPool.sizes
       };
       this.emit(FlashbotsBroadcasterEvent.Block, blockEvent);
       await this.execute({ blockNumber, timestamp, baseFee });
