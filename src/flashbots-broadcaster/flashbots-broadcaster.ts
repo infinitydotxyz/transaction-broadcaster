@@ -33,7 +33,7 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
   private provider: providers.StaticJsonRpcProvider;
   private flashbotsProvider: FlashbotsBundleProvider;
   private txPool: TxPool<T>;
-  private readonly network: providers.Network;
+  public readonly network: providers.Network;
   private readonly settings: FlashbotsBroadcasterSettings;
   private shutdown?: () => Promise<void>;
   private emitter: EventEmitter;
@@ -147,7 +147,8 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
       const timestamp = block.timestamp;
       const blockEvent: BlockEvent = {
         blockNumber,
-        gasPrice: baseFee.toString()
+        gasPrice: baseFee.toString(),
+        txPoolSizes: this.txPool.sizes
       };
       this.emit(FlashbotsBroadcasterEvent.Block, blockEvent);
       await this.execute({ blockNumber, timestamp, baseFee });
@@ -164,7 +165,7 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
       return;
     }
 
-    const simulationResult = await this.simulateBundle(transactions);
+    const simulationResult = await this.simulateBundle(transactions, currentBlock.blockNumber);
     if (this.settings.filterSimulationReverts) {
       transactions = simulationResult.successfulTransactions;
     }
@@ -195,6 +196,7 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
 
     if ('error' in bundleResponse) {
       const relayError: RelayErrorEvent = {
+        blockNumber: currentBlock.blockNumber,
         message: bundleResponse.error.message,
         code: bundleResponse.error.code
       };
@@ -326,12 +328,16 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
     return signedBundle;
   }
 
-  private async simulateBundle(transactions: providers.TransactionRequest[]): Promise<SimulatedEvent> {
+  private async simulateBundle(
+    transactions: providers.TransactionRequest[],
+    blockNumber: number
+  ): Promise<SimulatedEvent> {
     const signedBundle = await this.getSignedBundle(transactions);
     const simulationResult = await this.flashbotsProvider.simulate(signedBundle, 'latest');
 
     if ('error' in simulationResult) {
       const relayError: RelayErrorEvent = {
+        blockNumber: blockNumber,
         message: simulationResult.error.message,
         code: simulationResult.error.code
       };
@@ -357,6 +363,7 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
     }
 
     const simulatedEvent: SimulatedEvent = {
+      blockNumber: blockNumber,
       successfulTransactions: successful,
       revertedTransactions: reverted,
       gasPrice: simulatedMaxFeePerGas,
