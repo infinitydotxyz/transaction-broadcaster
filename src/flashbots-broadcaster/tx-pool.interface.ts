@@ -1,5 +1,4 @@
 import { TransactionRequest } from '@ethersproject/abstract-provider';
-import { NftTransfer } from '../utils/log.types';
 import { InvalidTransactionRequest } from './bundle.types';
 
 export interface TxPool<T extends { id: string }> {
@@ -12,6 +11,4 @@ export interface TxPool<T extends { id: string }> {
   getTransactions(options: {
     maxGasFeeGwei: number;
   }): Promise<{ txRequests: TransactionRequest[]; invalid?: InvalidTransactionRequest<T>[]; valid: T[] }>;
-
-  getBundleFromTransfer(transfer: NftTransfer): T | undefined;
 }

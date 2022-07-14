@@ -25,6 +25,7 @@ import {
 import { ChainId, MatchOrderFulfilledEvent } from '@infinityxyz/lib/types/core';
 import { decodeErc20Transfer, decodeMatchOrderFulfilled, decodeNftTransfer } from '../utils/log-decoders';
 import { Erc20Transfer, NftTransfer } from '../utils/log.types';
+import { BundleItem } from './bundle.types';
 
 export class FlashbotsBroadcaster<T extends { id: string }> {
   public readonly chainId: ChainId;
@@ -108,10 +109,6 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
     this.txPool.add(item);
   }
 
-  getBundleItemFromTransfer(transfer: NftTransfer): T | undefined {
-    return this.txPool.getBundleFromTransfer(transfer);
-  }
-
   remove(id: string) {
     this.txPool.remove(id);
   }
@@ -159,7 +156,7 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
 
   private async execute(currentBlock: { blockNumber: number; timestamp: number; baseFee: BigNumber }) {
     // eslint-disable-next-line prefer-const
-    let { transactions, targetBlockNumber, minTimestamp, maxTimestamp } = await this.getTransactions(currentBlock);
+    let { transactions, targetBlockNumber, minTimestamp, maxTimestamp, bundleItems } = await this.getTransactions(currentBlock);
 
     if (transactions.length === 0) {
       return;
@@ -259,6 +256,11 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
           { nftTransfers: [], erc20Transfers: [], matchOrdersFulfilled: [] }
         );
 
+        const bundleItemsSubmitted = (bundleItems as unknown as BundleItem[]).filter((bundleItem) => {
+          const item = logsByType.matchOrdersFulfilled.find((item) => bundleItem.orderIds.includes(item.buyOrderHash));
+          return !!item;
+        });
+
         const successfulBundleSubmission: SuccessfulBundleSubmission = {
           transactions: bundleTransactions,
           blockNumber: targetBlockNumber,
@@ -266,7 +268,8 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
           nftTransfers: logsByType.nftTransfers,
           erc20Transfers: logsByType.erc20Transfers,
           matchOrdersFulfilled: logsByType.matchOrdersFulfilled,
-          matchExecutor: this.signer.address.toLowerCase()
+          matchExecutor: this.signer.address.toLowerCase(),
+          bundleItems: bundleItemsSubmitted
         };
 
         this.emit(FlashbotsBroadcasterEvent.BundleResult, successfulBundleSubmission);
@@ -284,7 +287,7 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
     }
   }
 
-  private async getTransactions(currentBlock: { timestamp: number; blockNumber: number; baseFee: BigNumber }) {
+  private async getTransactions(currentBlock: { timestamp: number; blockNumber: number; baseFee: BigNumber }): Promise<{transactions: providers.TransactionRequest[], minTimestamp: number, maxTimestamp: number, targetBlockNumber: number, bundleItems: T[]}> {
     const minTimestamp = currentBlock.timestamp;
     const maxTimestamp = minTimestamp + 120;
     const targetBlockNumber = currentBlock.blockNumber + this.settings.blocksInFuture;
@@ -320,7 +323,8 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
       transactions,
       minTimestamp,
       maxTimestamp,
-      targetBlockNumber
+      targetBlockNumber,
+      bundleItems: valid
     };
   }
 
