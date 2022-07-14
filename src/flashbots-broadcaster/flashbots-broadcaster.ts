@@ -292,10 +292,18 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
     const maxFeePerGasGwei = Math.ceil(maxBaseFeeGwei + this.settings.priorityFee);
     const maxFeePerGas = gweiToWei(maxBaseFeeGwei);
 
-    const { txRequests, invalid } = await this.txPool.getTransactions({ maxGasFeeGwei: maxFeePerGasGwei });
+    const { txRequests, invalid, valid } = await this.txPool.getTransactions({ maxGasFeeGwei: maxFeePerGasGwei });
     if (invalid && invalid.length > 0) {
-      this.emit(FlashbotsBroadcasterEvent.InvalidBundleItems, { invalidBundleItems: invalid });
+      this.emit(FlashbotsBroadcasterEvent.InvalidBundleItems, {
+        invalidBundleItems: invalid,
+        blockNumber: currentBlock.blockNumber
+      });
     }
+
+    this.emit(FlashbotsBroadcasterEvent.ValidBundleItems, {
+      validBundleItems: valid,
+      blockNumber: currentBlock.blockNumber
+    });
 
     const transactions = txRequests.map((tx) => {
       const txRequest: providers.TransactionRequest = {

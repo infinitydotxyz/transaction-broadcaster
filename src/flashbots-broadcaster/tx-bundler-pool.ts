@@ -100,12 +100,15 @@ export class TxBundlerPool implements TxPool<BundleItem> {
     return bundleItem;
   }
 
-  async getTransactions(options: {
-    maxGasFeeGwei: number;
-  }): Promise<{ txRequests: TransactionRequest[]; invalid: InvalidTransactionRequest<BundleItem>[] }> {
+  async getTransactions(options: { maxGasFeeGwei: number }): Promise<{
+    txRequests: TransactionRequest[];
+    invalid: InvalidTransactionRequest<BundleItem>[];
+    valid: BundleItem[];
+  }> {
     const bundleTypes = Array.from(this.bundlePool.entries());
     let txRequests: TransactionRequest[] = [];
     let invalid: InvalidTransactionRequest<BundleItem>[] = [];
+    let valid: BundleItem[] = [];
     for (const [bundleType, bundle] of bundleTypes) {
       const bundleItemsUnderUnderGasPrice = (
         Array.from(bundle.values()) as [BundleTypeToBundleItem[BundleType]]
@@ -116,7 +119,7 @@ export class TxBundlerPool implements TxPool<BundleItem> {
        * for the same owner
        */
       let tokenIds = new Set<string>();
-      const nonConflictingBundleItems = bundleItemsUnderUnderGasPrice.filter((bundleItem) => {
+      let nonConflictingBundleItems = bundleItemsUnderUnderGasPrice.filter((bundleItem) => {
         // TODO should we limit buyers to one transaction per bundle?
         // otherwise we need to check to make sure the buyers have enough currency across multiple orders
         const ids = this.getOwnerTokenIdsFromBundleItem(bundleItem);
@@ -129,19 +132,35 @@ export class TxBundlerPool implements TxPool<BundleItem> {
         return true;
       });
 
+      /**
+       * don't return bundle items with conflicting orders
+       */
+      let orderIds = new Set<string>();
+      nonConflictingBundleItems = nonConflictingBundleItems.filter((bundleItem) => {
+        for (const id of bundleItem.orderIds) {
+          if (orderIds.has(id)) {
+            return false;
+          }
+        }
+        orderIds = new Set([...orderIds, ...bundleItem.orderIds]);
+        return true;
+      });
+
       const bundleItems = nonConflictingBundleItems;
       const encoder = this.getEncoder<BundleType>(bundleType);
       if (encoder && typeof encoder === 'function') {
-        const { txRequests: bundleTxRequests, invalidBundleItems } = await encoder(
-          bundleItems,
-          this.options.minBundleSize[bundleType]
-        );
+        const {
+          txRequests: bundleTxRequests,
+          invalidBundleItems,
+          validBundleItems
+        } = await encoder(bundleItems, this.options.minBundleSize[bundleType]);
 
         txRequests = [...txRequests, ...bundleTxRequests];
         invalid = [...invalid, ...invalidBundleItems];
+        valid = [...valid, ...validBundleItems];
       }
     }
-    return { txRequests, invalid };
+    return { txRequests, invalid, valid };
   }
 
   private getTransferIdsFromBundleItem(bundleItem: BundleItem): string[] {
