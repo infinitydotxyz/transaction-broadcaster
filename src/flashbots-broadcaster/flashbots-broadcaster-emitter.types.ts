@@ -20,6 +20,7 @@ export enum FlashbotsBroadcasterEvent {
   BundleResult = 'bundle-result',
 
   InvalidBundleItems = 'invalid-bundle-items',
+  ValidBundleItems = 'valid-bundle-items',
 
   RelayError = 'relay-error'
 }
@@ -110,6 +111,11 @@ export interface InvalidBundleItemsEvent {
   invalidBundleItems: InvalidTransactionRequest<BundleItem>[];
 }
 
+export interface ValidBundleItemsEvent {
+  blockNumber: number;
+  validBundleItems: BundleItem[];
+}
+
 export interface BlockEvent {
   blockNumber: number;
   gasPrice: BigNumberish;
@@ -126,6 +132,8 @@ export type GetEventType = {
   [FlashbotsBroadcasterEvent.BundleResult]: BundleSubmissionResultEvent;
   [FlashbotsBroadcasterEvent.RelayError]: RelayErrorEvent;
   [FlashbotsBroadcasterEvent.InvalidBundleItems]: InvalidBundleItemsEvent;
+  [FlashbotsBroadcasterEvent.ValidBundleItems]: ValidBundleItemsEvent;
+
 };
 
 export type FlashbotsBroadcasterEventTypes =
@@ -137,4 +145,5 @@ export type FlashbotsBroadcasterEventTypes =
   | BundleSubmissionResultEvent
   | RelayErrorEvent
   | BlockEvent
-  | InvalidBundleItemsEvent;
+  | InvalidBundleItemsEvent 
+  | ValidBundleItemsEvent;

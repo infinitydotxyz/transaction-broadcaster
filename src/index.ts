@@ -101,10 +101,22 @@ function registerBroadcasterListeners(
         event.blockNumber,
         `Found: ${updates.length} invalid bundle items`
       );
-      console.table(updates.map((item) => ({ id: item.id, error: item.state.error })));
-      await firestoreProvider.updateInvalidOrderMatches(updates);
+      if (updates.length > 0) {
+        console.table(updates.map((item) => ({ invalidBundleItems: item.id, error: item.state.error })));
+        await firestoreProvider.updateInvalidOrderMatches(updates);
+      }
     } catch (err) {
       console.error(err);
+    }
+  });
+  broadcaster.on(FlashbotsBroadcasterEvent.ValidBundleItems, (event) => {
+    log(
+      FlashbotsBroadcasterEvent.ValidBundleItems,
+      event.blockNumber,
+      `Found ${event.validBundleItems.length} valid bundle items`
+    );
+    if (event.validBundleItems.length > 0) {
+      console.table(event.validBundleItems.map((item) => ({ validBundleItems: item.id })));
     }
   });
   broadcaster.on(FlashbotsBroadcasterEvent.SubmittingBundle, (event) => {

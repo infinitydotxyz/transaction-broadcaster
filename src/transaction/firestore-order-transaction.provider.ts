@@ -163,7 +163,7 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
             `Invalid match orders data. Expected one listing and one offer. Received ${listings.length} listings and ${offers.length} offers.`
           );
         }
-        return this.getMatchOrdersBundle(id, listing, offer, numMatches, chainNfts);
+        return this.getMatchOrdersBundle(id, listing, offer, numMatches, chainNfts, match);
       }
       case FirestoreOrderMatchMethod.MatchOneToOneOrders: {
         const listing = listings[0];
@@ -175,6 +175,7 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
         }
         const bundleItem: MatchOrdersOneToOneBundleItem = {
           id,
+          orderIds: match.ids,
           chainId: listing.chainId as ChainId,
           bundleType: BundleType.MatchOrdersOneToOne,
           exchangeAddress: getExchangeAddress(listing.chainId),
@@ -209,6 +210,7 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
 
         const bundleItem: MatchOrdersOneToManyBundleItem = {
           id,
+          orderIds: match.ids,
           chainId: match.chainId,
           bundleType: BundleType.MatchOrdersOneToMany,
           exchangeAddress: getExchangeAddress(match.chainId),
@@ -230,7 +232,8 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
     listing: FirestoreOrder,
     offer: FirestoreOrder,
     numMatches: number,
-    chainNfts: ChainNFTs[]
+    chainNfts: ChainNFTs[],
+    match: FirestoreOrderMatch
   ) {
     const constructed: ChainOBOrder = {
       /**
@@ -258,6 +261,7 @@ export class FirestoreOrderTransactionProvider extends TransactionProvider {
     offer.signedOrder.constraints = offer.signedOrder.constraints.map((item) => BigNumber.from(item).toString());
     const bundleItem: MatchOrdersBundleItem = {
       id,
+      orderIds: match.ids,
       chainId: listing.chainId as ChainId,
       bundleType: BundleType.MatchOrders,
       exchangeAddress: getExchangeAddress(listing.chainId),

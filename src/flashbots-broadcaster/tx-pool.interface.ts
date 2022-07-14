@@ -11,7 +11,7 @@ export interface TxPool<T extends { id: string }> {
 
   getTransactions(options: {
     maxGasFeeGwei: number;
-  }): Promise<{ txRequests: TransactionRequest[]; invalid?: InvalidTransactionRequest<T>[] }>;
+  }): Promise<{ txRequests: TransactionRequest[]; invalid?: InvalidTransactionRequest<T>[], valid: T[] }>;
 
   getBundleFromTransfer(transfer: NftTransfer): T | undefined;
 }
