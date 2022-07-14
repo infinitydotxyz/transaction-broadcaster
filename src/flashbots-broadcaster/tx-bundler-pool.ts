@@ -100,9 +100,7 @@ export class TxBundlerPool implements TxPool<BundleItem> {
     return bundleItem;
   }
 
-  async getTransactions(options: {
-    maxGasFeeGwei: number;
-  }): Promise<{
+  async getTransactions(options: { maxGasFeeGwei: number }): Promise<{
     txRequests: TransactionRequest[];
     invalid: InvalidTransactionRequest<BundleItem>[];
     valid: BundleItem[];
@@ -139,8 +137,8 @@ export class TxBundlerPool implements TxPool<BundleItem> {
        */
       let orderIds = new Set<string>();
       nonConflictingBundleItems = nonConflictingBundleItems.filter((bundleItem) => {
-        for(const id of bundleItem.orderIds) {
-          if(orderIds.has(id)) {
+        for (const id of bundleItem.orderIds) {
+          if (orderIds.has(id)) {
             return false;
           }
         }

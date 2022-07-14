@@ -133,7 +133,6 @@ export type GetEventType = {
   [FlashbotsBroadcasterEvent.RelayError]: RelayErrorEvent;
   [FlashbotsBroadcasterEvent.InvalidBundleItems]: InvalidBundleItemsEvent;
   [FlashbotsBroadcasterEvent.ValidBundleItems]: ValidBundleItemsEvent;
-
 };
 
 export type FlashbotsBroadcasterEventTypes =
@@ -145,5 +144,5 @@ export type FlashbotsBroadcasterEventTypes =
   | BundleSubmissionResultEvent
   | RelayErrorEvent
   | BlockEvent
-  | InvalidBundleItemsEvent 
+  | InvalidBundleItemsEvent
   | ValidBundleItemsEvent;

@@ -140,13 +140,21 @@ export class InfinityExchange {
     const encoder: BundleOrdersEncoder<T> = async (
       bundleItems: T[],
       minBundleSize: number
-    ): Promise<{ txRequests: TransactionRequest[]; invalidBundleItems: InvalidTransactionRequest<T>[], validBundleItems: T[] }> => {
+    ): Promise<{
+      txRequests: TransactionRequest[];
+      invalidBundleItems: InvalidTransactionRequest<T>[];
+      validBundleItems: T[];
+    }> => {
       let validBundleItems: BundleItemWithCurrentPrice[] = [];
       let invalidBundleItems: InvalidTransactionRequest<T>[] = [];
 
       if (bundleItems.length < minBundleSize) {
         // don't attempt to validate matches until we have at least the min num bundle items
-        return { txRequests: [] as TransactionRequest[], invalidBundleItems: invalidBundleItems, validBundleItems: bundleItems };
+        return {
+          txRequests: [] as TransactionRequest[],
+          invalidBundleItems: invalidBundleItems,
+          validBundleItems: bundleItems
+        };
       }
 
       // TODO it would be more scalable to call an external service to check bundle item validity
@@ -186,7 +194,11 @@ export class InfinityExchange {
       ];
 
       if (validBundleItems.length < minBundleSize) {
-        return { txRequests: [] as TransactionRequest[], invalidBundleItems: invalidBundleItems, validBundleItems: validBundleItems as any as T[] };
+        return {
+          txRequests: [] as TransactionRequest[],
+          invalidBundleItems: invalidBundleItems,
+          validBundleItems: validBundleItems as any as T[]
+        };
       }
 
       const { txRequests, invalidBundleItems: invalidBundleItemsFromBuild } = await buildBundles(
