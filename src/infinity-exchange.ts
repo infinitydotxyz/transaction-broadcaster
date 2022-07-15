@@ -158,7 +158,6 @@ export class InfinityExchange {
       }
 
       // TODO it would be more scalable to call an external service to check bundle item validity
-
       const { validBundleItems: validBundleItemsAfterVerification, invalidBundleItems: invalidBundleItemsFromVerify } =
         await verifyBundleItems(bundleItems, chainId);
       const invalidBundleItemsFromVerifyWithError: InvalidTransactionRequest<T>[] = invalidBundleItemsFromVerify.map(
@@ -172,7 +171,6 @@ export class InfinityExchange {
       );
       validBundleItems = validBundleItemsAfterVerification;
       invalidBundleItems = [...invalidBundleItems, ...invalidBundleItemsFromVerifyWithError];
-
       const {
         validBundleItems: validBundleItemsAfterNftApproval,
         invalidBundleItems: invalidBundleItemsAfterNftApproval
@@ -182,7 +180,6 @@ export class InfinityExchange {
         ...invalidBundleItems,
         ...(invalidBundleItemsAfterNftApproval as InvalidTransactionRequest<T>[])
       ];
-
       const {
         validBundleItems: validBundleItemsAfterCurrencyCheck,
         invalidBundleItems: invalidBundleItemsFromCurrencyCheck

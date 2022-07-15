@@ -1,5 +1,4 @@
 import { TransactionRequest } from '@ethersproject/abstract-provider';
-import { MatchOrderFulfilledEvent } from '@infinityxyz/lib/types/core';
 import { ChainNFTs } from '@infinityxyz/lib/types/core/OBOrder';
 import { NftTransfer } from '../utils/log.types';
 import {
@@ -75,7 +74,6 @@ export class TxBundlerPool implements TxPool<BundleItem> {
     }
     this.idToBundleType.delete(id);
   }
-  
   async getTransactions(options: { maxGasFeeGwei: number }): Promise<{
     txRequests: TransactionRequest[];
     invalid: InvalidTransactionRequest<BundleItem>[];
@@ -123,7 +121,6 @@ export class TxBundlerPool implements TxPool<BundleItem> {
         orderIds = new Set([...orderIds, ...bundleItem.orderIds]);
         return true;
       });
-
       const bundleItems = nonConflictingBundleItems;
       const encoder = this.getEncoder<BundleType>(bundleType);
       if (encoder && typeof encoder === 'function') {
@@ -132,7 +129,6 @@ export class TxBundlerPool implements TxPool<BundleItem> {
           invalidBundleItems,
           validBundleItems
         } = await encoder(bundleItems, this.options.minBundleSize[bundleType]);
-
         txRequests = [...txRequests, ...bundleTxRequests];
         invalid = [...invalid, ...invalidBundleItems];
         valid = [...valid, ...validBundleItems];

@@ -156,8 +156,9 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
 
   private async execute(currentBlock: { blockNumber: number; timestamp: number; baseFee: BigNumber }) {
     // eslint-disable-next-line prefer-const
-    let { transactions, targetBlockNumber, minTimestamp, maxTimestamp, bundleItems } = await this.getTransactions(currentBlock);
-
+    let { transactions, targetBlockNumber, minTimestamp, maxTimestamp, bundleItems } = await this.getTransactions(
+      currentBlock
+    );
     if (transactions.length === 0) {
       return;
     }
@@ -172,7 +173,6 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
     }
 
     const updatedSignedBundle = await this.getSignedBundle(transactions);
-
     if (updatedSignedBundle.length === 0) {
       return;
     }
@@ -287,7 +287,17 @@ export class FlashbotsBroadcaster<T extends { id: string }> {
     }
   }
 
-  private async getTransactions(currentBlock: { timestamp: number; blockNumber: number; baseFee: BigNumber }): Promise<{transactions: providers.TransactionRequest[], minTimestamp: number, maxTimestamp: number, targetBlockNumber: number, bundleItems: T[]}> {
+  private async getTransactions(currentBlock: {
+    timestamp: number;
+    blockNumber: number;
+    baseFee: BigNumber;
+  }): Promise<{
+    transactions: providers.TransactionRequest[];
+    minTimestamp: number;
+    maxTimestamp: number;
+    targetBlockNumber: number;
+    bundleItems: T[];
+  }> {
     const minTimestamp = currentBlock.timestamp;
     const maxTimestamp = minTimestamp + 120;
     const targetBlockNumber = currentBlock.blockNumber + this.settings.blocksInFuture;

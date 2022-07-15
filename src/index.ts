@@ -147,7 +147,6 @@ function registerBroadcasterListeners(
       log(FlashbotsBroadcasterEvent.BundleResult, event.blockNumber, `Failed: ${event.reason}`);
     } else {
       try {
-
         const matchOrdersFulfilledByBuyOrderHash = event.matchOrdersFulfilled.reduce(
           (acc: { [buyOrderHash: string]: MatchOrderFulfilledEvent[] }, order) => {
             const orderHash: string = order.buyOrderHash.toLowerCase();
