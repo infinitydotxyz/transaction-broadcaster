@@ -81,6 +81,8 @@ export interface SuccessfulBundleSubmission {
   totalGasUsed: BigNumber;
 
   matchExecutor: string;
+
+  bundleItems: BundleItem[];
 }
 
 export enum FailedBundleSubmissionReason {

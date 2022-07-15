@@ -51,7 +51,7 @@ export const flashbotsOptionsGoerli: FlashbotsBroadcasterOptions = {
   },
   provider: getProvider(ChainId.Goerli),
   ...flashbotsOptions,
-  priorityFee: 1
+  priorityFee: 0.5
 };
 
 const chainIdProviders: Record<SupportedChainId, providers.StaticJsonRpcProvider> = {

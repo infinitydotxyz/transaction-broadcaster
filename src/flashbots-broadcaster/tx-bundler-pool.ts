@@ -74,32 +74,6 @@ export class TxBundlerPool implements TxPool<BundleItem> {
     }
     this.idToBundleType.delete(id);
   }
-
-  getBundleFromTransfer(transfer: NftTransfer): BundleItem | undefined {
-    const transferId = this.getTransferIdFromTransfer(transfer);
-    const bundleId = this.transferIdToBundleId.get(transferId);
-    if (!bundleId) {
-      return undefined;
-    }
-
-    const bundleType = this.idToBundleType.get(bundleId);
-    if (!bundleType) {
-      return undefined;
-    }
-
-    const bundle = this.bundlePool.get(bundleType);
-    if (!bundle) {
-      return undefined;
-    }
-
-    const bundleItem = bundle.get(bundleId);
-    if (!bundleItem) {
-      return undefined;
-    }
-
-    return bundleItem;
-  }
-
   async getTransactions(options: { maxGasFeeGwei: number }): Promise<{
     txRequests: TransactionRequest[];
     invalid: InvalidTransactionRequest<BundleItem>[];
@@ -112,7 +86,9 @@ export class TxBundlerPool implements TxPool<BundleItem> {
     for (const [bundleType, bundle] of bundleTypes) {
       const bundleItemsUnderUnderGasPrice = (
         Array.from(bundle.values()) as [BundleTypeToBundleItem[BundleType]]
-      ).filter((item) => item.maxGasPriceGwei === undefined || item.maxGasPriceGwei > options.maxGasFeeGwei);
+      ).filter((item) => {
+        return item.maxGasPriceGwei === undefined || item.maxGasPriceGwei > options.maxGasFeeGwei;
+      });
 
       /**
        * don't return multiple bundle items that change the quantity of a token
@@ -145,7 +121,6 @@ export class TxBundlerPool implements TxPool<BundleItem> {
         orderIds = new Set([...orderIds, ...bundleItem.orderIds]);
         return true;
       });
-
       const bundleItems = nonConflictingBundleItems;
       const encoder = this.getEncoder<BundleType>(bundleType);
       if (encoder && typeof encoder === 'function') {
@@ -154,7 +129,6 @@ export class TxBundlerPool implements TxPool<BundleItem> {
           invalidBundleItems,
           validBundleItems
         } = await encoder(bundleItems, this.options.minBundleSize[bundleType]);
-
         txRequests = [...txRequests, ...bundleTxRequests];
         invalid = [...invalid, ...invalidBundleItems];
         valid = [...valid, ...validBundleItems];

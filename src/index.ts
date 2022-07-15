@@ -116,7 +116,7 @@ function registerBroadcasterListeners(
       `Found ${event.validBundleItems.length} valid bundle items`
     );
     if (event.validBundleItems.length > 0) {
-      console.table(event.validBundleItems.map((item) => ({ validBundleItems: item.id })));
+      console.table(event.validBundleItems.map((item) => ({ validBundleItems: item.id, type: item.bundleType })));
     }
   });
   broadcaster.on(FlashbotsBroadcasterEvent.SubmittingBundle, (event) => {
@@ -147,10 +147,6 @@ function registerBroadcasterListeners(
       log(FlashbotsBroadcasterEvent.BundleResult, event.blockNumber, `Failed: ${event.reason}`);
     } else {
       try {
-        const bundleItems = event.nftTransfers
-          .map((transfer) => broadcaster.getBundleItemFromTransfer(transfer))
-          .filter((bundleItem) => !!bundleItem) as BundleItem[];
-
         const matchOrdersFulfilledByBuyOrderHash = event.matchOrdersFulfilled.reduce(
           (acc: { [buyOrderHash: string]: MatchOrderFulfilledEvent[] }, order) => {
             const orderHash: string = order.buyOrderHash.toLowerCase();
@@ -160,9 +156,9 @@ function registerBroadcasterListeners(
           {}
         );
 
-        const updates = bundleItems.map((bundleItem) => {
+        const updates = event.bundleItems.map((bundleItem) => {
           const orderHash = 'orderHash' in bundleItem ? bundleItem.orderHash : bundleItem.buyOrderHash;
-          const matchOrderEvents = matchOrdersFulfilledByBuyOrderHash[orderHash];
+          const matchOrderEvents = matchOrdersFulfilledByBuyOrderHash[orderHash] ?? [];
           const firstMatchOrderEvent = matchOrderEvents?.[0];
           const txHash = firstMatchOrderEvent?.txHash ?? '';
           const amount = matchOrderEvents.reduce(
