@@ -15,8 +15,8 @@ export const enabledChainIds = [ChainId.Goerli];
 const txBundlerPoolOptions: TxBundlerPoolOptions = {
   // can vary these if needed
   minBundleSize: {
-    [BundleType.MatchOrders]: 3,
-    [BundleType.MatchOrdersOneToOne]: 3,
+    [BundleType.MatchOrders]: 1,
+    [BundleType.MatchOrdersOneToOne]: 1,
     [BundleType.MatchOrdersOneToMany]: 1
   }
 };
